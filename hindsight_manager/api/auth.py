@@ -54,7 +54,7 @@ async def login(req: LoginRequest, session: AsyncSession = Depends(get_session))
         if not user or not verify_password(req.password, user.password_hash or ""):
             raise HTTPException(status_code=401, detail="Invalid credentials")
         token = create_token(str(user.id), user.username, settings.jwt_secret)
-        resp = JSONResponse(content={"token": token, "user": _user_response(user)})
+        resp = JSONResponse(content={"token": token, "user": _user_response(user).model_dump()})
         _set_session(resp, token)
         return resp
 
@@ -76,7 +76,7 @@ async def login(req: LoginRequest, session: AsyncSession = Depends(get_session))
             session.add(user)
             await session.commit()
             await session.refresh(user)
-        resp = JSONResponse(content={"token": result["token"], "user": _user_response(user)})
+        resp = JSONResponse(content={"token": result["token"], "user": _user_response(user).model_dump()})
         _set_session(resp, result["token"])
         return resp
 
@@ -108,7 +108,7 @@ async def cas_callback(ticket: str, session: AsyncSession = Depends(get_session)
         session.add(user)
         await session.commit()
         await session.refresh(user)
-    resp = JSONResponse(content={"user": _user_response(user)})
+    resp = JSONResponse(content={"user": _user_response(user).model_dump()})
     _set_session(resp, result["token"])
     return resp
 

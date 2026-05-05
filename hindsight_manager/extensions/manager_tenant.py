@@ -62,6 +62,11 @@ class ManagerTenantExtension(TenantExtension):
         if not db_url:
             logger.warning("No database URL available for ManagerTenantExtension")
             return
+        # Ensure we use asyncpg driver for async SQLAlchemy engine
+        for prefix in ("postgresql+psycopg2://", "postgresql://"):
+            if db_url.startswith(prefix):
+                db_url = "postgresql+asyncpg://" + db_url[len(prefix):]
+                break
         self._engine = create_async_engine(db_url, pool_pre_ping=True)
         logger.info(
             "ManagerTenantExtension initialized (schema=%s)",
@@ -106,7 +111,7 @@ class ManagerTenantExtension(TenantExtension):
                     SELECT t.schema_name
                     FROM {schema}.api_keys ak
                     JOIN {schema}.tenants t ON ak.tenant_id = t.id
-                    WHERE ak.key_hash = :key_hash AND t.status = 'active'
+                    WHERE ak.key_hash = :key_hash AND t.status = 'ACTIVE'
                     """
                 ),
                 {"key_hash": key_hash},
@@ -145,7 +150,7 @@ class ManagerTenantExtension(TenantExtension):
                     SELECT t.config
                     FROM {schema}.api_keys ak
                     JOIN {schema}.tenants t ON ak.tenant_id = t.id
-                    WHERE ak.key_hash = :key_hash AND t.status = 'active'
+                    WHERE ak.key_hash = :key_hash AND t.status = 'ACTIVE'
                     """
                 ),
                 {"key_hash": key_hash},
@@ -166,5 +171,5 @@ class ManagerTenantExtension(TenantExtension):
         schema = self._manager_schema
 
         async with self._engine.connect() as conn:
-            result = await conn.execute(text(f"SELECT schema_name FROM {schema}.tenants WHERE status = 'active'"))
+            result = await conn.execute(text(f"SELECT schema_name FROM {schema}.tenants WHERE status = 'ACTIVE'"))
             return [Tenant(schema=row[0]) for row in result.fetchall()]

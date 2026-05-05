@@ -20,7 +20,7 @@ class User(Base):
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     auth_provider: Mapped[AuthProvider] = mapped_column(
-        Enum(AuthProvider, name="auth_provider"), nullable=False
+        Enum(AuthProvider, name="auth_provider", schema="manager"), nullable=False
     )
     created_at: Mapped[str] = mapped_column(server_default="now()")
 

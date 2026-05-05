@@ -20,7 +20,7 @@ class Tenant(Base):
     schema_name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     config: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     status: Mapped[TenantStatus] = mapped_column(
-        Enum(TenantStatus, name="tenant_status"), nullable=False, default=TenantStatus.ACTIVE
+        Enum(TenantStatus, name="tenant_status", schema="manager"), nullable=False, default=TenantStatus.ACTIVE
     )
     created_at: Mapped[str] = mapped_column(server_default="now()")
 

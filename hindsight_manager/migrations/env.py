@@ -9,8 +9,6 @@ from hindsight_manager.config import Settings
 from hindsight_manager.models.base import Base
 
 config = context.config
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
 
 settings = Settings()
 target_metadata = Base.metadata

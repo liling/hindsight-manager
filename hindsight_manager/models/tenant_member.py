@@ -21,7 +21,7 @@ class TenantMember(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), nullable=False)
     role: Mapped[MemberRole] = mapped_column(
-        Enum(MemberRole, name="member_role"), nullable=False, default=MemberRole.MEMBER
+        Enum(MemberRole, name="member_role", schema="manager"), nullable=False, default=MemberRole.MEMBER
     )
     created_at: Mapped[str] = mapped_column(server_default="now()")
 
