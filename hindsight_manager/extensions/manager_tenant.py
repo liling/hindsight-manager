@@ -17,7 +17,9 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import logging
+from datetime import datetime, timezone
 from hashlib import sha256
 from typing import Any
 
@@ -51,6 +53,9 @@ class ManagerTenantExtension(TenantExtension):
         self._manager_schema: str = config.get("manager_schema", "manager")
         self._initialized_schemas: set[str] = set()
         self._engine: AsyncEngine | None = None
+        self._pending_key_updates: dict[str, datetime] = {}
+        self._flush_task: asyncio.Task | None = None
+        self._flush_interval: int = 30
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -68,16 +73,55 @@ class ManagerTenantExtension(TenantExtension):
                 db_url = "postgresql+asyncpg://" + db_url[len(prefix):]
                 break
         self._engine = create_async_engine(db_url, pool_pre_ping=True)
+        self._flush_task = asyncio.create_task(self._flush_loop())
         logger.info(
-            "ManagerTenantExtension initialized (schema=%s)",
+            "ManagerTenantExtension initialized (schema=%s, flush_interval=%ds)",
             self._manager_schema,
+            self._flush_interval,
         )
 
     async def on_shutdown(self) -> None:
-        """Dispose the async engine."""
+        """Flush pending updates and dispose the async engine."""
+        if self._flush_task:
+            self._flush_task.cancel()
+            try:
+                await self._flush_task
+            except asyncio.CancelledError:
+                pass
+            await self._flush_pending()
         if self._engine:
             await self._engine.dispose()
             self._engine = None
+
+    async def _flush_loop(self) -> None:
+        while True:
+            await asyncio.sleep(self._flush_interval)
+            await self._flush_pending()
+
+    async def _flush_pending(self) -> None:
+        if not self._pending_key_updates or not self._engine:
+            return
+        updates = self._pending_key_updates.copy()
+        self._pending_key_updates.clear()
+        schema = self._manager_schema
+        try:
+            async with self._engine.connect() as conn:
+                for key_hash, used_at in updates.items():
+                    await conn.execute(
+                        text(
+                            f"UPDATE {schema}.api_keys SET last_used_at = :ts "
+                            f"WHERE key_hash = :key_hash "
+                            f"AND (last_used_at IS NULL OR last_used_at < :ts)"
+                        ),
+                        {"ts": used_at, "key_hash": key_hash},
+                    )
+                await conn.commit()
+        except Exception:
+            logger.exception("Failed to flush last_used_at updates")
+            for key_hash, used_at in updates.items():
+                existing = self._pending_key_updates.get(key_hash)
+                if existing is None or used_at > existing:
+                    self._pending_key_updates[key_hash] = used_at
 
     # ------------------------------------------------------------------
     # Authentication
@@ -121,6 +165,8 @@ class ManagerTenantExtension(TenantExtension):
                 raise AuthenticationError("Invalid API key")
 
             schema_name: str = row[0]
+
+        self._pending_key_updates[key_hash] = datetime.now(timezone.utc)
 
         # Provision schema on first access
         if schema_name not in self._initialized_schemas:
