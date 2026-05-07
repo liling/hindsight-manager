@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
@@ -7,9 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from hindsight_manager.auth.cas import CASAuth, CASClient
 from hindsight_manager.auth.dependencies import SESSION_COOKIE, get_current_user
 from hindsight_manager.auth.local import verify_password
-from hindsight_manager.auth.session import create_token
+from hindsight_manager.auth.session import create_access_token, create_token
 from hindsight_manager.config import Settings
 from hindsight_manager.db import get_session
+from hindsight_manager.models.tenant_member import TenantMember
 from hindsight_manager.models.user import AuthProvider, User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -123,3 +126,38 @@ async def logout():
 @router.get("/me", response_model=UserResponse)
 async def me(current_user: User = Depends(get_current_user)):
     return _user_response(current_user)
+
+
+class AccessTokenResponse(BaseModel):
+    access_token: str
+    expires_in: int
+    tenant_id: str
+
+
+@router.post("/access-token", response_model=AccessTokenResponse)
+async def create_access_token_endpoint(
+    tenant_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    result = await session.execute(
+        select(TenantMember).where(
+            TenantMember.user_id == current_user.id,
+            TenantMember.tenant_id == tenant_id,
+        )
+    )
+    membership = result.scalar_one_or_none()
+    if not membership:
+        raise HTTPException(status_code=403, detail="Not a member of this tenant")
+
+    settings = Settings()
+    token = create_access_token(
+        user_id=str(current_user.id),
+        tenant_id=str(tenant_id),
+        secret=settings.jwt_secret,
+    )
+    return AccessTokenResponse(
+        access_token=token,
+        expires_in=900,
+        tenant_id=str(tenant_id),
+    )
