@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from hindsight_manager.api.api_keys import router as api_keys_router
 from hindsight_manager.api.auth import router as auth_router
@@ -20,6 +21,15 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Hindsight Manager", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(auth_router)
 app.include_router(tenants_router)
 app.include_router(members_router)
