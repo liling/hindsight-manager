@@ -16,6 +16,7 @@ dependencies = [
     "python-cas>=1.6.0",
     "httpx>=0.27.0",
     "pydantic-settings>=2.7.0",
+    "gmssl>=3.2.2",
 ]
 
 [project.scripts]
