@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -6,10 +8,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hindsight_manager.auth.dependencies import get_current_user
+from hindsight_manager.config import Settings
+from hindsight_manager.crypto import encrypt_sm4
 from hindsight_manager.db import get_session
+from hindsight_manager.models.api_key import ApiKey
 from hindsight_manager.models.tenant import Tenant, TenantStatus
 from hindsight_manager.models.tenant_member import MemberRole, TenantMember
 from hindsight_manager.models.user import User
+
+KEY_PREFIX = "hsm_"
+SYSTEM_KEY_NAME = "system-proxy-key"
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
 
@@ -98,6 +106,25 @@ async def create_tenant(
 
     membership = TenantMember(user_id=current_user.id, tenant_id=tenant.id, role=MemberRole.OWNER)
     session.add(membership)
+
+    # Auto-generate system API key
+    settings = Settings()
+    raw_key = f"{KEY_PREFIX}{secrets.token_hex(32)}"
+    key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+    key_prefix = raw_key[:16]
+    encryption_key_bytes = bytes.fromhex(settings.encryption_key)
+    encrypted_key = encrypt_sm4(raw_key, encryption_key_bytes)
+
+    system_key = ApiKey(
+        tenant_id=tenant.id,
+        key_hash=key_hash,
+        key_prefix=key_prefix,
+        name=SYSTEM_KEY_NAME,
+        is_system=True,
+        encrypted_key=encrypted_key,
+    )
+    session.add(system_key)
+
     await session.commit()
     await session.refresh(tenant)
     return _tenant_response(tenant)

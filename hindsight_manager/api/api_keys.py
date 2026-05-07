@@ -87,7 +87,7 @@ async def list_api_keys(
     session: AsyncSession = Depends(get_session),
 ):
     await _require_owner(session, current_user, tenant_id)
-    result = await session.execute(select(ApiKey).where(ApiKey.tenant_id == tenant_id))
+    result = await session.execute(select(ApiKey).where(ApiKey.tenant_id == tenant_id, ApiKey.is_system == False))
     return [
         ApiKeyResponse(
             id=str(k.id),
