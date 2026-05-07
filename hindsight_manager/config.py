@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     cas_server_url: str | None = None
     cas_service_url: str | None = None
     jwt_secret: str
+    encryption_key: str = "0123456789abcdef0123456789abcdef"
+    dataplane_url: str = "http://localhost:8888"
     host: str = "0.0.0.0"
     port: int = 8001
 
