@@ -9,9 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from hindsight_manager.auth.cas import CASAuth, CASClient
 from hindsight_manager.auth.dependencies import SESSION_COOKIE, get_current_user
 from hindsight_manager.auth.local import verify_password
-from hindsight_manager.auth.session import create_access_token, create_token
+from hindsight_manager.auth.session import create_access_token, create_otp, create_token, exchange_otp
 from hindsight_manager.config import Settings
+from hindsight_manager.crypto import decrypt_sm4
 from hindsight_manager.db import get_session
+from hindsight_manager.models.api_key import ApiKey
+from hindsight_manager.models.tenant import Tenant
 from hindsight_manager.models.tenant_member import TenantMember
 from hindsight_manager.models.user import AuthProvider, User
 
@@ -134,6 +137,21 @@ class AccessTokenResponse(BaseModel):
     tenant_id: str
 
 
+class OtpResponse(BaseModel):
+    otp: str
+    expires_in: int
+
+
+class ExchangeOtpRequest(BaseModel):
+    otp: str
+
+
+class ExchangeOtpResponse(BaseModel):
+    jwt: str
+    api_key: str
+    tenant_slug: str
+
+
 @router.post("/access-token", response_model=AccessTokenResponse)
 async def create_access_token_endpoint(
     tenant_id: uuid.UUID,
@@ -160,4 +178,67 @@ async def create_access_token_endpoint(
         access_token=token,
         expires_in=900,
         tenant_id=str(tenant_id),
+    )
+
+
+@router.post("/otp", response_model=OtpResponse)
+async def create_otp_endpoint(
+    tenant_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    result = await session.execute(
+        select(TenantMember).where(
+            TenantMember.user_id == current_user.id,
+            TenantMember.tenant_id == tenant_id,
+        )
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="Not a member of this tenant")
+
+    otp = create_otp(str(current_user.id), str(tenant_id))
+    return OtpResponse(otp=otp, expires_in=60)
+
+
+@router.post("/exchange-otp", response_model=ExchangeOtpResponse)
+async def exchange_otp_endpoint(
+    req: ExchangeOtpRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    claims = exchange_otp(req.otp)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Invalid or expired OTP")
+
+    user_id = claims["user_id"]
+    tenant_id = claims["tenant_id"]
+
+    settings = Settings()
+    result = await session.execute(
+        select(ApiKey).where(
+            ApiKey.tenant_id == tenant_id,
+            ApiKey.is_system == True,  # noqa: E712
+        )
+    )
+    api_key = result.scalar_one_or_none()
+    if not api_key or not api_key.encrypted_key:
+        raise HTTPException(status_code=500, detail="No system API key found for tenant")
+
+    encryption_key_bytes = bytes.fromhex(settings.encryption_key)
+    decrypted_key = decrypt_sm4(api_key.encrypted_key, encryption_key_bytes)
+
+    tenant_result = await session.execute(select(Tenant).where(Tenant.id == tenant_id))
+    tenant = tenant_result.scalar_one_or_none()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    jwt_token = create_access_token(
+        user_id=user_id,
+        tenant_id=tenant_id,
+        secret=settings.jwt_secret,
+    )
+
+    return ExchangeOtpResponse(
+        jwt=jwt_token,
+        api_key=decrypted_key,
+        tenant_slug=tenant.name,
     )
