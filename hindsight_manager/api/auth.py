@@ -2,6 +2,8 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
+from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +21,8 @@ from hindsight_manager.models.tenant_member import TenantMember
 from hindsight_manager.models.user import AuthProvider, User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+templates = Jinja2Templates(directory="hindsight_manager/templates")
 
 
 class LoginRequest(BaseModel):
@@ -45,7 +49,15 @@ def _user_response(user: User) -> UserResponse:
 
 
 def _set_session(response: Response | JSONResponse, token: str) -> None:
-    response.set_cookie(SESSION_COOKIE, token, httponly=True, max_age=86400, path="/")
+    response.set_cookie(
+        SESSION_COOKIE,
+        token,
+        httponly=True,
+        max_age=86400,
+        path="/",
+        samesite="none",
+        secure=False
+    )
 
 
 @router.post("/login")
@@ -87,6 +99,29 @@ async def login(req: LoginRequest, session: AsyncSession = Depends(get_session))
         return resp
 
     raise HTTPException(status_code=400, detail=f"Unsupported provider: {req.provider}")
+
+
+@router.post("/login/form")
+async def login_form(
+    request: Request,
+    form: OAuth2PasswordRequestForm = Depends(),
+    session: AsyncSession = Depends(get_session),
+):
+    settings = Settings()
+    username = form.username
+    password = form.password
+
+    result = await session.execute(select(User).where(User.username == username))
+    user = result.scalar_one_or_none()
+    if not user or not verify_password(password, user.password_hash or ""):
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "error": "用户名或密码错误"},
+        )
+    token = create_token(str(user.id), user.username, settings.jwt_secret)
+    resp = RedirectResponse(url="/dashboard", status_code=303)
+    _set_session(resp, token)
+    return resp
 
 
 @router.get("/cas/login")
@@ -240,5 +275,5 @@ async def exchange_otp_endpoint(
     return ExchangeOtpResponse(
         jwt=jwt_token,
         api_key=decrypted_key,
-        tenant_slug=tenant.name,
+        tenant_slug=tenant.schema_name,
     )
