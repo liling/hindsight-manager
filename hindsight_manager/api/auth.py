@@ -175,6 +175,7 @@ class AccessTokenResponse(BaseModel):
 class OtpResponse(BaseModel):
     otp: str
     expires_in: int
+    redirect_url: str
 
 
 class ExchangeOtpRequest(BaseModel):
@@ -232,7 +233,15 @@ async def create_otp_endpoint(
         raise HTTPException(status_code=403, detail="Not a member of this tenant")
 
     otp = create_otp(str(current_user.id), str(tenant_id))
-    return OtpResponse(otp=otp, expires_in=60)
+    settings = Settings()
+
+    tenant_result = await session.execute(select(Tenant).where(Tenant.id == tenant_id))
+    tenant = tenant_result.scalar_one_or_none()
+    slug = tenant.schema_name if tenant else str(tenant_id)
+
+    redirect_url = f"{settings.cp_url_for_tenant(slug)}/?otp={otp}"
+
+    return OtpResponse(otp=otp, expires_in=60, redirect_url=redirect_url)
 
 
 @router.post("/exchange-otp", response_model=ExchangeOtpResponse)
