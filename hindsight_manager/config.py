@@ -12,5 +12,12 @@ class Settings(BaseSettings):
     dataplane_url: str = "http://localhost:8888"
     host: str = "0.0.0.0"
     port: int = 8001
+    base_url: str = "http://localhost:8001"
+    cp_base_domain: str = "cp.local.mem99.com"
+    cp_port: str = "9996"
+    cp_scheme: str = "http"
 
     model_config = {"env_prefix": "HINDSIGHT_MANAGER_"}
+
+    def cp_url_for_tenant(self, slug: str) -> str:
+        return f"{self.cp_scheme}://{slug}.{self.cp_base_domain}:{self.cp_port}"
