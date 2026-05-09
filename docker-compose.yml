@@ -79,9 +79,9 @@ services:
       # Data plane API URL
       HINDSIGHT_CP_DATAPLANE_API_URL: http://hindsight-api:8888
       # Manager API URL (for OTP exchange in SaaS middleware)
-      MANAGER_API_URL: http://manager:8001
+      HINDSIGHT_CP_MANAGER_API_URL: http://manager:8001
       # Manager URL for redirecting unauthenticated SaaS requests
-      SAAS_HOST_URL: http://app.hindsight.com:8001
+      HINDSIGHT_CP_SAAS_HOST_URL: http://app.hindsight.com:8001
       PORT: "9999"
     ports:
       - "9999:9999"
