@@ -55,4 +55,4 @@ async def test_otp_returns_redirect_url(mock_create_otp, client: AsyncClient):
     assert "redirect_url" in data
     assert "tenant_abc12345" in data["redirect_url"]
     assert "test-otp-token" in data["redirect_url"]
-    assert data["redirect_url"].startswith("http://tenant_abc12345.cp.local.mem99.com:9996")
+    assert data["redirect_url"].startswith("http://tenant_abc12345.cp.local.mem99.cn:9996")

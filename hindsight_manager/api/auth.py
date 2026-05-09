@@ -55,7 +55,7 @@ def _set_session(response: Response | JSONResponse, token: str) -> None:
         httponly=True,
         max_age=86400,
         path="/",
-        samesite="none",
+        samesite="lax",
         secure=False
     )
 
