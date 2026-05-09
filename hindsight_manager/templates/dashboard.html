@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}记忆库 - Hindsight{% endblock %}
+{% block content %}
+<div class="dashboard">
+    <div class="dashboard-header">
+        <h2>记忆库</h2>
+        <button class="btn btn-primary" onclick="showCreateModal()">创建记忆库</button>
+    </div>
+
+    {% if tenants|length == 0 %}
+    <div class="empty-state">
+        <p>还没有记忆库，点击上方按钮创建一个。</p>
+    </div>
+    {% else %}
+    <div class="tenant-list">
+        {% for t in tenants %}
+        <div class="tenant-card">
+            <div class="tenant-info">
+                <h3>{{ t.name }}</h3>
+                <span class="tenant-meta">{{ t.schema_name }} · {{ t.role }}</span>
+            </div>
+            <div class="tenant-actions">
+                <button class="btn btn-primary btn-sm" onclick="enterConsole('{{ t.id }}', '{{ t.schema_name }}')">进入控制台</button>
+                {% if t.role == 'owner' %}
+                <button class="btn btn-danger btn-sm" onclick="deleteTenant('{{ t.id }}', '{{ t.name }}')">删除</button>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<div id="create-modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="hideCreateModal()"></div>
+    <div class="modal-content">
+        <h3>创建记忆库</h3>
+        <form id="create-form" onsubmit="createTenant(event)">
+            <div class="form-group">
+                <label for="tenant-name">名称</label>
+                <input type="text" id="tenant-name" name="name" required>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="hideCreateModal()">取消</button>
+                <button type="submit" class="btn btn-primary">创建</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script src="/static/app.js"></script>
+{% endblock %}

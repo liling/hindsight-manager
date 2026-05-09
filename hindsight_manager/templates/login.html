@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}登录 - Hindsight{% endblock %}
+{% block content %}
+<div class="login-container">
+    <h1>Hindsight</h1>
+    {% if error %}
+    <div class="alert alert-error">{{ error }}</div>
+    {% endif %}
+    <form action="/auth/login/form" method="POST" class="login-form">
+        <input type="hidden" name="provider" value="local">
+        <div class="form-group">
+            <label for="username">用户名</label>
+            <input type="text" id="username" name="username" required autocomplete="username">
+        </div>
+        <div class="form-group">
+            <label for="password">密码</label>
+            <input type="password" id="password" name="password" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">登录</button>
+    </form>
+</div>
+{% endblock %}
