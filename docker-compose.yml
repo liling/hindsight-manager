@@ -1,0 +1,90 @@
+# Hindsight Multi-Tenant Deployment
+#
+# Services:
+#   postgres       - Shared PostgreSQL database
+#   hindsight-api  - Data plane (port 8888)
+#   manager        - Tenant management (port 8001)
+#   control-plane  - Admin UI with SaaS multi-tenant auth (port 9999)
+#
+# Usage:
+#   cp .env.example .env  # edit values
+#   docker compose up -d
+#
+# Access:
+#   Manager:        http://app.hindsight.com:8001
+#   Control Plane:  http://{tenant-slug}.cp.hindsight.com:9999
+#   API:            http://localhost:8888
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: hindsight
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hindsight}
+      POSTGRES_DB: hindsight
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hindsight"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  hindsight-api:
+    image: ghcr.io/vectorize-io/hindsight-api:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      HINDSIGHT_API_DATABASE_URL: postgresql+asyncpg://hindsight:${POSTGRES_PASSWORD:-hindsight}@postgres:5432/hindsight
+      HINDSIGHT_API_LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      HINDSIGHT_API_LLM_API_KEY: ${LLM_API_KEY}
+      HINDSIGHT_API_LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      # Disable local ML models (use external providers or skip)
+      PRELOAD_ML_MODELS: "false"
+      # ManagerTenantExtension: validates API keys against manager schema
+      HINDSIGHT_API_TENANT_EXTENSION: hindsight_api.extensions.builtin.manager_tenant:ManagerTenantExtension
+      HINDSIGHT_API_TENANT_MANAGER_SCHEMA: manager
+    ports:
+      - "8888:8888"
+
+  manager:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      HINDSIGHT_MANAGER_DATABASE_URL: postgresql+asyncpg://hindsight:${POSTGRES_PASSWORD:-hindsight}@postgres:5432/hindsight
+      HINDSIGHT_MANAGER_JWT_SECRET: ${JWT_SECRET}
+      HINDSIGHT_MANAGER_ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef}
+      # Manager's own URL (used for CORS and self-referencing)
+      HINDSIGHT_MANAGER_BASE_URL: http://app.hindsight.com:8001
+      # Dataplane URL (for proxying API calls)
+      HINDSIGHT_MANAGER_DATAPLANE_URL: http://hindsight-api:8888
+      # Control Plane domain config (for OTP redirect after login)
+      HINDSIGHT_MANAGER_CP_BASE_DOMAIN: cp.hindsight.com
+      HINDSIGHT_MANAGER_CP_PORT: "9999"
+      HINDSIGHT_MANAGER_CP_SCHEME: http
+    ports:
+      - "8001:8001"
+
+  control-plane:
+    image: ghcr.io/vectorize-io/hindsight-control-plane:latest
+    depends_on:
+      - hindsight-api
+      - manager
+    environment:
+      # Data plane API URL
+      HINDSIGHT_CP_DATAPLANE_API_URL: http://hindsight-api:8888
+      # Manager API URL (for OTP exchange in SaaS middleware)
+      MANAGER_API_URL: http://manager:8001
+      # Manager URL for redirecting unauthenticated SaaS requests
+      SAAS_HOST_URL: http://app.hindsight.com:8001
+      PORT: "9999"
+    ports:
+      - "9999:9999"
+
+volumes:
+  pgdata:
