@@ -115,8 +115,7 @@ async def login_form(
     user = result.scalar_one_or_none()
     if not user or not verify_password(password, user.password_hash or ""):
         return templates.TemplateResponse(
-            "login.html",
-            {"request": request, "error": "用户名或密码错误"},
+            request, "login.html", {"error": "用户名或密码错误"},
         )
     token = create_token(str(user.id), user.username, settings.jwt_secret)
     resp = RedirectResponse(url="/dashboard", status_code=303)

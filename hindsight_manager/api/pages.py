@@ -29,7 +29,7 @@ async def login_page(
 ):
     if user:
         return RedirectResponse(url="/dashboard", status_code=302)
-    return templates.TemplateResponse("login.html", {"request": request, "error": error})
+    return templates.TemplateResponse(request, "login.html", {"error": error})
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
@@ -53,6 +53,6 @@ async def dashboard_page(
         for t, role in result.all()
     ]
     return templates.TemplateResponse(
-        "dashboard.html",
-        {"request": request, "user": current_user, "tenants": tenants},
+        request, "dashboard.html",
+        {"user": current_user, "tenants": tenants},
     )
