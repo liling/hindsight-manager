@@ -1,4 +1,4 @@
-from fastapi import Cookie, Depends, HTTPException, status
+from fastapi import Cookie, Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,12 +13,19 @@ SESSION_COOKIE = "hindsight_session"
 async def get_current_user(
     session: AsyncSession = Depends(get_session),
     token: str | None = Cookie(default=None, alias=SESSION_COOKIE),
+    authorization: str | None = Header(default=None),
 ) -> User:
-    if not token:
+    # Try cookie first, then Authorization header
+    auth_token = token
+    if not auth_token and authorization:
+        if authorization.startswith("Bearer "):
+            auth_token = authorization[7:]
+
+    if not auth_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
     settings = Settings()
-    payload = decode_token(token, settings.jwt_secret)
+    payload = decode_token(auth_token, settings.jwt_secret)
     if not payload:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired session")
 
@@ -27,3 +34,14 @@ async def get_current_user(
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     return user
+
+
+async def get_current_user_or_none(
+    session: AsyncSession = Depends(get_session),
+    token: str | None = Cookie(default=None, alias=SESSION_COOKIE),
+    authorization: str | None = Header(default=None),
+) -> User | None:
+    try:
+        return await get_current_user(session, token, authorization)
+    except HTTPException:
+        return None
