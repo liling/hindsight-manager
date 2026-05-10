@@ -1,5 +1,7 @@
 from contextlib import asynccontextmanager
+import asyncio
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 from alembic import command
 from alembic.config import Config as AlembicConfig
@@ -22,6 +24,8 @@ from hindsight_manager.db import init_db
 settings = Settings()
 
 logger = logging.getLogger(__name__)
+
+_pool = ThreadPoolExecutor(max_workers=1)
 
 
 def _run_migrations() -> None:
@@ -55,7 +59,8 @@ async def _ensure_admin_user(engine: AsyncEngine) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    _run_migrations()
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(_pool, _run_migrations)
     engine = create_async_engine(settings.database_url, pool_pre_ping=True)
     await _ensure_admin_user(engine)
     await engine.dispose()
