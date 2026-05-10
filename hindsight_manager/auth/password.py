@@ -3,7 +3,7 @@ import secrets
 import string
 from typing import Literal
 
-import passlib.hash
+import bcrypt
 
 
 class PasswordError(Exception):
@@ -81,8 +81,13 @@ def hash_password(password: str) -> str:
 
     Returns:
         哈希后的密码
+
+    Note:
+        bcrypt 有 72 字节的密码长度限制，超过部分会被截断。
     """
-    return passlib.hash.bcrypt.using(rounds=12).hash(password)
+    # bcrypt 限制密码为 72 字节
+    salt = bcrypt.gensalt(rounds=12)
+    return bcrypt.hashpw(password[:72].encode('utf-8'), salt).decode('utf-8')
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -95,8 +100,12 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
     Returns:
         密码是否匹配
+
+    Note:
+        bcrypt 有 72 字节的密码长度限制，超过部分会被截断。
     """
-    return passlib.hash.bcrypt.using(rounds=12).verify(plain_password, hashed_password)
+    # bcrypt 限制密码为 72 字节
+    return bcrypt.checkpw(plain_password[:72].encode('utf-8'), hashed_password.encode('utf-8'))
 
 
 def generate_secure_password(length: int = 16) -> str:
@@ -104,10 +113,29 @@ def generate_secure_password(length: int = 16) -> str:
     生成安全的随机密码。
 
     Args:
-        length: 密码长度（默认 16）
+        length: 密码长度（默认 16，最小 8）
 
     Returns:
-        随机密码
+        随机密码（保证包含大小写字母、数字和特殊字符）
+
+    Raises:
+        ValueError: 如果长度小于 8
     """
+    if length < 8:
+        raise ValueError("密码长度至少为 8")
+
+    # 确保至少包含每种类型的字符
+    password = [
+        secrets.choice(string.ascii_uppercase),  # 大写字母
+        secrets.choice(string.ascii_lowercase),  # 小写字母
+        secrets.choice(string.digits),           # 数字
+        secrets.choice(string.punctuation),      # 特殊字符
+    ]
+
+    # 填充剩余长度
     alphabet = string.ascii_letters + string.digits + string.punctuation
-    return ''.join(secrets.choice(alphabet) for _ in range(length))
+    password.extend(secrets.choice(alphabet) for _ in range(length - 4))
+
+    # 打乱顺序
+    secrets.SystemRandom().shuffle(password)
+    return ''.join(password)

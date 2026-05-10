@@ -8,7 +8,6 @@ from alembic.config import Config as AlembicConfig
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from passlib.hash import bcrypt as passlib_bcrypt
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
@@ -20,6 +19,7 @@ from hindsight_manager.api.pages import router as pages_router
 from hindsight_manager.api.password import router as password_router
 from hindsight_manager.api.proxy import router as proxy_router
 from hindsight_manager.api.tenants import router as tenants_router
+from hindsight_manager.auth.password import hash_password
 from hindsight_manager.config import Settings
 from hindsight_manager.db import init_db
 
@@ -47,7 +47,7 @@ async def _ensure_admin_user(engine: AsyncEngine) -> None:
         )
         if result.fetchone():
             return
-        hashed = passlib_bcrypt.using(rounds=12).hash(settings.admin_password)
+        hashed = hash_password(settings.admin_password)
         await conn.execute(
             text(
                 "INSERT INTO manager.users (id, username, password_hash, display_name, auth_provider) "
