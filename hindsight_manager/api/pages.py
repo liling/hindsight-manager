@@ -56,3 +56,42 @@ async def dashboard_page(
         request, "dashboard.html",
         {"user": current_user, "tenants": tenants},
     )
+
+
+@router.get("/password/change", response_class=HTMLResponse)
+async def change_password_page(
+    request: Request,
+    error: str = "",
+    message: str = "",
+    current_user: User = Depends(get_current_user),
+):
+    return templates.TemplateResponse(
+        request, "password/change.html",
+        {"user": current_user, "error": error, "message": message},
+    )
+
+
+@router.get("/password/forgot", response_class=HTMLResponse)
+async def forgot_password_page(
+    request: Request,
+    error: str = "",
+    message: str = "",
+):
+    return templates.TemplateResponse(
+        request, "password/reset.html",
+        {"error": error, "message": message, "show_reset_form": False},
+    )
+
+
+@router.get("/password/reset", response_class=HTMLResponse)
+async def reset_password_page(
+    request: Request,
+    email: str = "",
+    error: str = "",
+    message: str = "",
+):
+    show_reset_form = bool(email)
+    return templates.TemplateResponse(
+        request, "password/reset.html",
+        {"error": error, "message": message, "show_reset_form": show_reset_form, "email": email},
+    )

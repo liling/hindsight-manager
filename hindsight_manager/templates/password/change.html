@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}修改密码 - Hindsight{% endblock %}
+{% block content %}
+<div class="password-container">
+    <h1>修改密码</h1>
+    {% if error %}
+    <div class="alert alert-error">{{ error }}</div>
+    {% endif %}
+    {% if message %}
+    <div class="alert alert-success">{{ message }}</div>
+    {% endif %}
+    <form id="changePasswordForm" class="password-form">
+        <div class="form-group">
+            <label for="old_password">当前密码</label>
+            <input type="password" id="old_password" name="old_password" required autocomplete="current-password">
+        </div>
+        <div class="form-group">
+            <label for="new_password">新密码</label>
+            <input type="password" id="new_password" name="new_password" required autocomplete="new-password">
+            <small class="text-muted">密码至少8位，包含大小写字母、数字和特殊字符</small>
+        </div>
+        <div class="form-group">
+            <label for="confirm_password">确认新密码</label>
+            <input type="password" id="confirm_password" name="confirm_password" required autocomplete="new-password">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">修改密码</button>
+    </form>
+</div>
+
+<script>
+document.getElementById('changePasswordForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const oldPassword = document.getElementById('old_password').value;
+    const newPassword = document.getElementById('new_password').value;
+    const confirmPassword = document.getElementById('confirm_password').value;
+
+    // Client-side validation
+    if (newPassword !== confirmPassword) {
+        showError('两次输入的密码不一致');
+        return;
+    }
+
+    if (newPassword === oldPassword) {
+        showError('新密码不能与当前密码相同');
+        return;
+    }
+
+    try {
+        const response = await fetch('/password/change', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                old_password: oldPassword,
+                new_password: newPassword
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            showSuccess(data.message || '密码修改成功');
+            setTimeout(() => {
+                window.location.href = '/dashboard';
+            }, 2000);
+        } else {
+            showError(data.detail || '密码修改失败');
+        }
+    } catch (error) {
+        showError('网络错误，请稍后重试');
+    }
+});
+
+function showError(message) {
+    const existingAlert = document.querySelector('.alert-error');
+    if (existingAlert) {
+        existingAlert.remove();
+    }
+
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-error';
+    alertDiv.textContent = message;
+    document.querySelector('.password-container').insertBefore(alertDiv, document.querySelector('.password-form'));
+}
+
+function showSuccess(message) {
+    const existingAlert = document.querySelector('.alert-success');
+    if (existingAlert) {
+        existingAlert.remove();
+    }
+
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success';
+    alertDiv.textContent = message;
+    document.querySelector('.password-container').insertBefore(alertDiv, document.querySelector('.password-form'));
+}
+</script>
+{% endblock %}

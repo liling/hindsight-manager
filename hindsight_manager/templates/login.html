@@ -6,7 +6,7 @@
     {% if error %}
     <div class="alert alert-error">{{ error }}</div>
     {% endif %}
-    <form action="/auth/login/form" method="POST" class="login-form">
+    <form id="loginForm" action="/auth/login/form" method="POST" class="login-form">
         <input type="hidden" name="provider" value="local">
         <div class="form-group">
             <label for="username">用户名</label>
@@ -16,7 +16,50 @@
             <label for="password">密码</label>
             <input type="password" id="password" name="password" required autocomplete="current-password">
         </div>
+        <div class="form-group">
+            <div id="captcha-container"></div>
+            <input type="hidden" id="captcha_token" name="captcha_token" required>
+        </div>
         <button type="submit" class="btn btn-primary btn-block">登录</button>
     </form>
+    <div class="login-links">
+        <a href="/password/forgot">忘记密码？</a>
+    </div>
 </div>
+
+<script src="/static/captcha.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize captcha
+    const captcha = new Captcha('#captcha-container', {
+        width: 300,
+        height: 150,
+        onSuccess: function(token) {
+            document.getElementById('captcha_token').value = token;
+        }
+    });
+
+    const loginForm = document.getElementById('loginForm');
+    loginForm.addEventListener('submit', function(e) {
+        const captchaToken = document.getElementById('captcha_token').value;
+        if (!captchaToken) {
+            e.preventDefault();
+            showError('请完成滑动验证');
+            return false;
+        }
+    });
+
+    function showError(message) {
+        const existingAlert = document.querySelector('.alert-error');
+        if (existingAlert) {
+            existingAlert.remove();
+        }
+
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-error';
+        alertDiv.textContent = message;
+        document.querySelector('.login-container').insertBefore(alertDiv, document.querySelector('.login-form'));
+    }
+});
+</script>
 {% endblock %}
