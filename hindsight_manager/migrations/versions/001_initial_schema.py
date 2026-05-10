@@ -18,6 +18,11 @@ SCHEMA = "manager"
 def upgrade() -> None:
     op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA public")
     op.execute("CREATE EXTENSION IF NOT EXISTS vchord CASCADE")
+    op.execute("CREATE EXTENSION IF NOT EXISTS vchord_bm25 CASCADE")
+    op.execute("CREATE EXTENSION IF NOT EXISTS pg_tokenizer CASCADE")
+    op.execute(
+        "SELECT tokenizer_catalog.create_tokenizer('llmlingua2', $$ model = \"llmlingua2\" $$)"
+    )
     op.execute(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}")
 
     op.create_table(
