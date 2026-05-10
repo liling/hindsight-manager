@@ -59,6 +59,7 @@ services:
       HINDSIGHT_MANAGER_DATABASE_URL: postgresql+asyncpg://hindsight:${POSTGRES_PASSWORD:-hindsight}@postgres:5432/hindsight
       HINDSIGHT_MANAGER_JWT_SECRET: ${JWT_SECRET}
       HINDSIGHT_MANAGER_ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef}
+      HINDSIGHT_MANAGER_ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
       # Manager's own URL (used for CORS and self-referencing)
       HINDSIGHT_MANAGER_BASE_URL: http://app.hindsight.com:8001
       # Dataplane URL (for proxying API calls)
