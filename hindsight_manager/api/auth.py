@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from hindsight_manager.auth.cas import CASAuth, CASClient
 from hindsight_manager.auth.dependencies import SESSION_COOKIE, get_current_user
 from hindsight_manager.auth.local import verify_password
+from hindsight_manager.auth.password import hash_password, validate_password_strength, PasswordStrengthError
 from hindsight_manager.auth.session import create_access_token, create_otp, create_token, exchange_otp
 from hindsight_manager.config import Settings
 from hindsight_manager.crypto import decrypt_sm4
@@ -285,3 +286,52 @@ async def exchange_otp_endpoint(
         api_key=decrypted_key,
         tenant_slug=tenant.schema_name,
     )
+
+
+class CreateUserRequest(BaseModel):
+    username: str
+    password: str
+    email: str | None = None
+    display_name: str
+    auth_provider: str = "local"
+
+
+@router.post("/users", response_model=UserResponse)
+async def create_user(
+    req: CreateUserRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Create a new user (admin only)."""
+    # Check if current user is admin
+    if current_user.username != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can create users")
+
+    # Check if username already exists
+    result = await session.execute(select(User).where(User.username == req.username))
+    if result.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Username already exists")
+
+    # Validate password strength
+    try:
+        validate_password_strength(req.password)
+    except PasswordStrengthError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Validate auth provider
+    if req.auth_provider not in ["local", "cas"]:
+        raise HTTPException(status_code=400, detail="Invalid auth provider")
+
+    # Create user
+    user = User(
+        username=req.username,
+        password_hash=hash_password(req.password) if req.auth_provider == "local" else None,
+        email=req.email,
+        display_name=req.display_name,
+        auth_provider=AuthProvider.LOCAL if req.auth_provider == "local" else AuthProvider.CAS,
+    )
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+
+    return _user_response(user)
