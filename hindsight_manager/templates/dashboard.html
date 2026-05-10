@@ -1,34 +1,66 @@
 {% extends "base.html" %}
-{% block title %}记忆库 - Hindsight{% endblock %}
+{% block title %}控制台 - Hindsight{% endblock %}
 {% block content %}
-<div class="dashboard">
-    <div class="dashboard-header">
-        <h2>记忆库</h2>
-        <button class="btn btn-primary" onclick="showCreateModal()">创建记忆库</button>
-    </div>
-
-    {% if tenants|length == 0 %}
-    <div class="empty-state">
-        <p>还没有记忆库，点击上方按钮创建一个。</p>
-    </div>
-    {% else %}
-    <div class="tenant-list">
-        {% for t in tenants %}
-        <div class="tenant-card">
-            <div class="tenant-info">
-                <h3>{{ t.name }}</h3>
-                <span class="tenant-meta">{{ t.schema_name }} · {{ t.role }}</span>
-            </div>
-            <div class="tenant-actions">
-                <button class="btn btn-primary btn-sm" onclick="enterConsole('{{ t.id }}', '{{ t.schema_name }}')">进入控制台</button>
-                {% if t.role == 'owner' %}
-                <button class="btn btn-danger btn-sm" onclick="deleteTenant('{{ t.id }}', '{{ t.name }}')">删除</button>
-                {% endif %}
-            </div>
+<div class="admin-layout">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h3>Hindsight</h3>
+            <p class="user-info">{{ user.username }}</p>
         </div>
-        {% endfor %}
-    </div>
-    {% endif %}
+        <nav class="sidebar-nav">
+            <a href="/dashboard" class="nav-item active">
+                <span>📊</span> 记忆库
+            </a>
+            <a href="/api-keys" class="nav-item">
+                <span>🔑</span> API Keys
+            </a>
+            <a href="/password/change" class="nav-item">
+                <span>🔐</span> 修改密码
+            </a>
+            <a href="/profile" class="nav-item">
+                <span>👤</span> 个人资料
+            </a>
+            {% if user.username == 'admin' %}
+            <a href="/admin/users" class="nav-item">
+                <span>👥</span> 用户管理
+            </a>
+            {% endif %}
+            <a href="/auth/logout" class="nav-item" onclick="logout(event)">
+                <span>🚪</span> 退出登录
+            </a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <div class="content-header">
+            <h2>记忆库</h2>
+            <button class="btn btn-primary" onclick="showCreateModal()">+ 创建记忆库</button>
+        </div>
+
+        {% if tenants|length == 0 %}
+        <div class="empty-state">
+            <p>还没有记忆库，点击上方按钮创建一个。</p>
+        </div>
+        {% else %}
+        <div class="tenant-list">
+            {% for t in tenants %}
+            <div class="tenant-card">
+                <div class="tenant-info">
+                    <h3>{{ t.name }}</h3>
+                    <span class="tenant-meta">{{ t.schema_name }} · {{ t.role }}</span>
+                </div>
+                <div class="tenant-actions">
+                    <button class="btn btn-primary btn-sm" onclick="enterConsole('{{ t.id }}', '{{ t.schema_name }}')">进入控制台</button>
+                    {% if t.role == 'owner' %}
+                    <button class="btn btn-secondary btn-sm" onclick="showApiKeys('{{ t.id }}', '{{ t.name }}')">API Keys</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteTenant('{{ t.id }}', '{{ t.name }}')">删除</button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </main>
 </div>
 
 <div id="create-modal" class="modal hidden">
@@ -48,4 +80,14 @@
     </div>
 </div>
 <script src="/static/app.js"></script>
+<script>
+function logout(e) {
+    e.preventDefault();
+    fetch('/auth/logout', { method: 'POST' })
+        .then(() => window.location.href = '/login');
+}
+function showApiKeys(tenantId, tenantName) {
+    alert('API Keys 功能开发中...\n租户: ' + tenantName);
+}
+</script>
 {% endblock %}

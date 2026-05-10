@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}API Keys - Hindsight{% endblock %}
+{% block content %}
+<div class="admin-layout">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h3>Hindsight</h3>
+            <p class="user-info">{{ user.username }}</p>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/dashboard" class="nav-item">
+                <span>📊</span> 记忆库
+            </a>
+            <a href="/api-keys" class="nav-item active">
+                <span>🔑</span> API Keys
+            </a>
+            <a href="/password/change" class="nav-item">
+                <span>🔐</span> 修改密码
+            </a>
+            <a href="/profile" class="nav-item">
+                <span>👤</span> 个人资料
+            </a>
+            {% if user.username == 'admin' %}
+            <a href="/admin/users" class="nav-item">
+                <span>👥</span> 用户管理
+            </a>
+            {% endif %}
+            <a href="/auth/logout" class="nav-item" onclick="logout(event)">
+                <span>🚪</span> 退出登录
+            </a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <div class="content-header">
+            <h2>API Keys</h2>
+        </div>
+
+        {% if api_keys|length == 0 %}
+        <div class="empty-state">
+            <p>还没有 API Keys。API Keys 会在创建记忆库时自动生成。</p>
+        </div>
+        {% else %}
+        <div class="api-keys-list">
+            {% for key in api_keys %}
+            <div class="api-key-card">
+                <div class="api-key-info">
+                    <h3>{{ key.name }}</h3>
+                    <p class="api-key-meta">租户: {{ key.tenant_name }}</p>
+                    <p class="api-key-detail">
+                        <code>{{ key.key_prefix }}...</code>
+                        <span class="api-key-date">创建于: {{ key.created_at }}</span>
+                    </p>
+                    {% if key.is_system %}
+                    <span class="badge badge-system">系统</span>
+                    {% endif %}
+                </div>
+                <div class="api-key-actions">
+                    <button class="btn btn-secondary btn-sm" onclick="copyKey('{{ key.key_prefix }}')">复制</button>
+                    {% if not key.is_system %}
+                    <button class="btn btn-danger btn-sm" onclick="deleteKey('{{ key.id }}')">删除</button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </main>
+</div>
+<script src="/static/app.js"></script>
+<script>
+function logout(e) {
+    e.preventDefault();
+    fetch('/auth/logout', { method: 'POST' })
+        .then(() => window.location.href = '/login');
+}
+function copyKey(prefix) {
+    alert('复制功能开发中...\n前缀: ' + prefix);
+}
+function deleteKey(keyId) {
+    if (confirm('确定要删除这个 API Key 吗？')) {
+        alert('删除功能开发中...');
+    }
+}
+</script>
+{% endblock %}

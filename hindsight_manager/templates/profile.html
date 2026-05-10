@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}个人资料 - Hindsight{% endblock %}
+{% block content %}
+<div class="admin-layout">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h3>Hindsight</h3>
+            <p class="user-info">{{ user.username }}</p>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/dashboard" class="nav-item">
+                <span>📊</span> 记忆库
+            </a>
+            <a href="/api-keys" class="nav-item">
+                <span>🔑</span> API Keys
+            </a>
+            <a href="/password/change" class="nav-item">
+                <span>🔐</span> 修改密码
+            </a>
+            <a href="/profile" class="nav-item active">
+                <span>👤</span> 个人资料
+            </a>
+            {% if user.username == 'admin' %}
+            <a href="/admin/users" class="nav-item">
+                <span>👥</span> 用户管理
+            </a>
+            {% endif %}
+            <a href="/auth/logout" class="nav-item" onclick="logout(event)">
+                <span>🚪</span> 退出登录
+            </a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <div class="content-header">
+            <h2>个人资料</h2>
+        </div>
+
+        <div class="profile-card">
+            <div class="profile-field">
+                <label>用户名</label>
+                <input type="text" value="{{ user.username }}" readonly>
+            </div>
+            <div class="profile-field">
+                <label>显示名称</label>
+                <input type="text" value="{{ user.display_name }}" readonly>
+            </div>
+            <div class="profile-field">
+                <label>邮箱</label>
+                <input type="email" value="{{ user.email or '未设置' }}" readonly>
+            </div>
+            <div class="profile-field">
+                <label>认证方式</label>
+                <input type="text" value="{{ user.auth_provider.value }}" readonly>
+            </div>
+            <div class="profile-field">
+                <label>账号状态</label>
+                <input type="text" value="{% if user.is_active %}正常{% else %}已禁用{% endif %}" readonly>
+            </div>
+
+            <div class="profile-actions">
+                <a href="/password/change" class="btn btn-primary">修改密码</a>
+            </div>
+        </div>
+    </main>
+</div>
+<style>
+.profile-card {
+    background: #fff;
+    padding: 32px;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    max-width: 500px;
+}
+.profile-field {
+    margin-bottom: 20px;
+}
+.profile-field label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #6b7280;
+}
+.profile-field input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    background: #f9fafb;
+}
+.profile-actions {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid #e0e0e0;
+}
+</style>
+<script src="/static/app.js"></script>
+<script>
+function logout(e) {
+    e.preventDefault();
+    fetch('/auth/logout', { method: 'POST' })
+        .then(() => window.location.href = '/login');
+}
+</script>
+{% endblock %}

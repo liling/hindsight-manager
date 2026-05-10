@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from hindsight_manager.auth.dependencies import get_current_user, get_current_user_or_none
 from hindsight_manager.db import get_session
+from hindsight_manager.models.api_key import ApiKey
 from hindsight_manager.models.tenant import Tenant
 from hindsight_manager.models.tenant_member import TenantMember
 from hindsight_manager.models.user import User
@@ -94,4 +95,46 @@ async def reset_password_page(
     return templates.TemplateResponse(
         request, "password/reset.html",
         {"error": error, "message": message, "show_reset_form": show_reset_form, "email": email},
+    )
+
+
+@router.get("/api-keys", response_class=HTMLResponse)
+async def api_keys_page(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    result = await session.execute(
+        select(Tenant, TenantMember.role, ApiKey)
+        .join(TenantMember, Tenant.id == TenantMember.tenant_id)
+        .join(ApiKey, ApiKey.tenant_id == Tenant.id)
+        .where(TenantMember.user_id == current_user.id)
+    )
+    api_keys = [
+        {
+            "id": str(key.id),
+            "key_prefix": key.key_prefix,
+            "name": key.name,
+            "tenant_id": str(tenant.id),
+            "tenant_name": tenant.name,
+            "created_at": str(key.created_at),
+            "last_used_at": str(key.last_used_at) if key.last_used_at else "Never",
+            "is_system": key.is_system,
+        }
+        for tenant, role, key in result.all()
+    ]
+    return templates.TemplateResponse(
+        request, "api_keys.html",
+        {"user": current_user, "api_keys": api_keys},
+    )
+
+
+@router.get("/profile", response_class=HTMLResponse)
+async def profile_page(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
+    return templates.TemplateResponse(
+        request, "profile.html",
+        {"user": current_user},
     )
