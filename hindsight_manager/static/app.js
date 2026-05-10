@@ -9,7 +9,7 @@ async function enterConsole(tenantId, tenantSlug) {
       return;
     }
     const { redirect_url } = await resp.json();
-    window.location.href = redirect_url;
+    window.open(redirect_url, "_blank");
   } catch (e) {
     alert("网络错误");
   }
