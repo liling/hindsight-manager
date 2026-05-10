@@ -18,6 +18,7 @@ dependencies = [
     "pydantic-settings>=2.7.0",
     "gmssl>=3.2.2",
     "jinja2>=3.1.0",
+    "pillow>=10.0.0",
 ]
 
 [project.scripts]
