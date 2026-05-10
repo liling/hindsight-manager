@@ -1,4 +1,4 @@
-"""add user password fields
+"""Add user password fields
 
 Revision ID: 003
 Revises: 002
