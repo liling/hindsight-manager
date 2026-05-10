@@ -12,6 +12,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
 
     steps:
       - uses: actions/checkout@v4
@@ -44,3 +45,20 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/hindsight-manager:${{ steps.sha.outputs.SHORT }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Delete old package versions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSIONS=$(gh api user/packages/container/hindsight-manager/versions --paginate -q '.[].id')
+          TOTAL=$(echo "$VERSIONS" | wc -l | tr -d ' ')
+          KEEP=10
+          if [ "$TOTAL" -le "$KEEP" ]; then
+            echo "Only $TOTAL versions, nothing to clean up"
+            exit 0
+          fi
+          echo "Keeping latest $KEEP of $TOTAL versions"
+          echo "$VERSIONS" | tail -n +$((KEEP + 1)) | while read vid; do
+            echo "Deleting version $vid"
+            gh api -X DELETE user/packages/container/hindsight-manager/versions/$vid || true
+          done
