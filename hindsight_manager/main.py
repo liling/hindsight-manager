@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from hindsight_manager.api.api_keys import router as api_keys_router
 from hindsight_manager.api.auth import router as auth_router
+from hindsight_manager.api.captcha import router as captcha_router
 from hindsight_manager.api.members import router as members_router
 from hindsight_manager.api.pages import router as pages_router
 from hindsight_manager.api.proxy import router as proxy_router
@@ -86,6 +87,7 @@ app.include_router(tenants_router)
 app.include_router(members_router)
 app.include_router(api_keys_router)
 app.include_router(proxy_router)
+app.include_router(captcha_router)
 app.mount("/static", StaticFiles(directory="hindsight_manager/static"), name="static")
 
 
