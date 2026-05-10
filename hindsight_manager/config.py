@@ -18,6 +18,17 @@ class Settings(BaseSettings):
     cp_port: str = "9996"
     cp_scheme: str = "http"
 
+    # Email service configuration
+    email_service: str = "smtp"  # smtp or sendgrid
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_from_email: str | None = None
+    smtp_use_tls: bool = True
+    sendgrid_api_key: str | None = None
+    sendgrid_from_email: str | None = None
+
     model_config = {"env_prefix": "HINDSIGHT_MANAGER_", "env_file": ".env"}
 
     def cp_url_for_tenant(self, slug: str) -> str:
