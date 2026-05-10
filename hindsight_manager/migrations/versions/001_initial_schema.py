@@ -16,6 +16,8 @@ SCHEMA = "manager"
 
 
 def upgrade() -> None:
+    op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA public")
+    op.execute("CREATE EXTENSION IF NOT EXISTS vchord CASCADE")
     op.execute(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}")
 
     op.create_table(
