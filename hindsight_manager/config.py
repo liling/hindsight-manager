@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     cp_port: str = "9996"
     cp_scheme: str = "http"
 
-    model_config = {"env_prefix": "HINDSIGHT_MANAGER_"}
+    model_config = {"env_prefix": "HINDSIGHT_MANAGER_", "env_file": ".env"}
 
     def cp_url_for_tenant(self, slug: str) -> str:
         return f"{self.cp_scheme}://{slug}.{self.cp_base_domain}:{self.cp_port}"
