@@ -7,17 +7,6 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    {% if user %}
-    <nav>
-        <span class="nav-brand">Hindsight</span>
-        <span class="nav-user">{{ user.display_name }}</span>
-        <form action="/auth/logout" method="POST" class="nav-form">
-            <button type="submit" class="btn btn-secondary btn-sm">退出</button>
-        </form>
-    </nav>
-    {% endif %}
-    <main>
-        {% block content %}{% endblock %}
-    </main>
+    {% block content %}{% endblock %}
 </body>
 </html>
