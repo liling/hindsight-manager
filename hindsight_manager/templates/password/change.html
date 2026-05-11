@@ -1,31 +1,98 @@
 {% extends "base.html" %}
 {% block title %}修改密码 - Hindsight{% endblock %}
 {% block content %}
-<div class="password-container">
-    <h1>修改密码</h1>
-    {% if error %}
-    <div class="alert alert-error">{{ error }}</div>
-    {% endif %}
-    {% if message %}
-    <div class="alert alert-success">{{ message }}</div>
-    {% endif %}
-    <form id="changePasswordForm" class="password-form">
-        <div class="form-group">
-            <label for="old_password">当前密码</label>
-            <input type="password" id="old_password" name="old_password" required autocomplete="current-password">
+<div class="admin-layout">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h3>Hindsight</h3>
+            <p class="user-info">{{ user.username }}</p>
         </div>
-        <div class="form-group">
-            <label for="new_password">新密码</label>
-            <input type="password" id="new_password" name="new_password" required autocomplete="new-password">
-            <small class="text-muted">密码至少8位，包含大小写字母、数字和特殊字符</small>
+        <nav class="sidebar-nav">
+            <a href="/dashboard" class="nav-item">
+                <span>📊</span> 记忆库
+            </a>
+            <a href="/api-keys" class="nav-item">
+                <span>🔑</span> API Keys
+            </a>
+            <a href="/password/change" class="nav-item active">
+                <span>🔐</span> 修改密码
+            </a>
+            <a href="/profile" class="nav-item">
+                <span>👤</span> 个人资料
+            </a>
+            {% if user.username == 'admin' %}
+            <a href="/admin/users" class="nav-item">
+                <span>👥</span> 用户管理
+            </a>
+            {% endif %}
+            <a href="/auth/logout" class="nav-item" onclick="logout(event)">
+                <span>🚪</span> 退出登录
+            </a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <div class="content-header">
+            <h2>修改密码</h2>
         </div>
-        <div class="form-group">
-            <label for="confirm_password">确认新密码</label>
-            <input type="password" id="confirm_password" name="confirm_password" required autocomplete="new-password">
+
+        <div class="password-card">
+            <div id="alert-container"></div>
+
+            <form id="changePasswordForm">
+                <div class="form-group">
+                    <label for="old_password">当前密码</label>
+                    <input type="password" id="old_password" name="old_password" required autocomplete="current-password">
+                </div>
+                <div class="form-group">
+                    <label for="new_password">新密码</label>
+                    <input type="password" id="new_password" name="new_password" required autocomplete="new-password">
+                    <small class="text-muted">密码至少8位，包含大小写字母、数字和特殊字符</small>
+                </div>
+                <div class="form-group">
+                    <label for="confirm_password">确认新密码</label>
+                    <input type="password" id="confirm_password" name="confirm_password" required autocomplete="new-password">
+                </div>
+                <button type="submit" class="btn btn-primary">修改密码</button>
+            </form>
         </div>
-        <button type="submit" class="btn btn-primary btn-block">修改密码</button>
-    </form>
+    </main>
 </div>
+
+<style>
+.password-card {
+    background: #fff;
+    padding: 32px;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    max-width: 450px;
+}
+.text-muted {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: #6b7280;
+}
+#alert-container {
+    margin-bottom: 16px;
+}
+.alert {
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    font-size: 14px;
+}
+.alert-error {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+.alert-success {
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+</style>
 
 <script>
 document.getElementById('changePasswordForm').addEventListener('submit', async function(e) {
@@ -35,14 +102,17 @@ document.getElementById('changePasswordForm').addEventListener('submit', async f
     const newPassword = document.getElementById('new_password').value;
     const confirmPassword = document.getElementById('confirm_password').value;
 
+    // Clear previous alerts
+    clearAlerts();
+
     // Client-side validation
     if (newPassword !== confirmPassword) {
-        showError('两次输入的密码不一致');
+        showAlert('error', '两次输入的密码不一致');
         return;
     }
 
     if (newPassword === oldPassword) {
-        showError('新密码不能与当前密码相同');
+        showAlert('error', '新密码不能与当前密码相同');
         return;
     }
 
@@ -61,40 +131,35 @@ document.getElementById('changePasswordForm').addEventListener('submit', async f
         const data = await response.json();
 
         if (response.ok) {
-            showSuccess(data.message || '密码修改成功');
+            showAlert('success', data.message || '密码修改成功，正在跳转...');
             setTimeout(() => {
                 window.location.href = '/dashboard';
             }, 2000);
         } else {
-            showError(data.detail || '密码修改失败');
+            showAlert('error', data.detail || '密码修改失败');
         }
     } catch (error) {
-        showError('网络错误，请稍后重试');
+        showAlert('error', '网络错误，请稍后重试');
     }
 });
 
-function showError(message) {
-    const existingAlert = document.querySelector('.alert-error');
-    if (existingAlert) {
-        existingAlert.remove();
-    }
-
+function showAlert(type, message) {
+    const container = document.getElementById('alert-container');
     const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-error';
+    alertDiv.className = `alert alert-${type}`;
     alertDiv.textContent = message;
-    document.querySelector('.password-container').insertBefore(alertDiv, document.querySelector('.password-form'));
+    container.appendChild(alertDiv);
 }
 
-function showSuccess(message) {
-    const existingAlert = document.querySelector('.alert-success');
-    if (existingAlert) {
-        existingAlert.remove();
-    }
+function clearAlerts() {
+    const container = document.getElementById('alert-container');
+    container.innerHTML = '';
+}
 
-    const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-success';
-    alertDiv.textContent = message;
-    document.querySelector('.password-container').insertBefore(alertDiv, document.querySelector('.password-form'));
+function logout(e) {
+    e.preventDefault();
+    fetch('/auth/logout', { method: 'POST' })
+        .then(() => window.location.href = '/login');
 }
 </script>
 {% endblock %}
