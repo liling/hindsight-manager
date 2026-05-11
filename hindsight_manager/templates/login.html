@@ -16,10 +16,6 @@
             <label for="password">密码</label>
             <input type="password" id="password" name="password" required autocomplete="current-password">
         </div>
-        <div class="form-group">
-            <div id="captcha-container"></div>
-            <input type="hidden" id="captcha_token" name="captcha_token" required>
-        </div>
         <button type="submit" class="btn btn-primary btn-block">登录</button>
     </form>
     <div class="login-links">
@@ -27,39 +23,26 @@
     </div>
 </div>
 
-<script src="/static/captcha.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize captcha
-    const captcha = new Captcha('#captcha-container', {
-        width: 300,
-        height: 150,
-        onSuccess: function(token) {
-            document.getElementById('captcha_token').value = token;
-        }
-    });
-
-    const loginForm = document.getElementById('loginForm');
-    loginForm.addEventListener('submit', function(e) {
-        const captchaToken = document.getElementById('captcha_token').value;
-        if (!captchaToken) {
-            e.preventDefault();
-            showError('请完成滑动验证');
-            return false;
-        }
-    });
-
-    function showError(message) {
-        const existingAlert = document.querySelector('.alert-error');
-        if (existingAlert) {
-            existingAlert.remove();
-        }
-
-        const alertDiv = document.createElement('div');
-        alertDiv.className = 'alert alert-error';
-        alertDiv.textContent = message;
-        document.querySelector('.login-container').insertBefore(alertDiv, document.querySelector('.login-form'));
+const loginForm = document.getElementById('loginForm');
+loginForm.addEventListener('submit', function(e) {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    if (!username || !password) {
+        e.preventDefault();
+        showError('请输入用户名和密码');
+        return false;
     }
 });
+
+function showError(message) {
+    const existingAlert = document.querySelector('.alert-error');
+    if (existingAlert) existingAlert.remove();
+
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-error';
+    alertDiv.textContent = message;
+    document.querySelector('.login-container').insertBefore(alertDiv, document.querySelector('.login-form'));
+}
 </script>
 {% endblock %}
