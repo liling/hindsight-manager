@@ -1,98 +1,30 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 {% block title %}修改密码 - Hindsight{% endblock %}
-{% block content %}
-<div class="admin-layout">
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Hindsight</h3>
-            <p class="user-info">{{ user.username }}</p>
-        </div>
-        <nav class="sidebar-nav">
-            <a href="/dashboard" class="nav-item">
-                <span>📊</span> 记忆库
-            </a>
-            <a href="/api-keys" class="nav-item">
-                <span>🔑</span> API Keys
-            </a>
-            <a href="/password/change" class="nav-item active">
-                <span>🔐</span> 修改密码
-            </a>
-            <a href="/profile" class="nav-item">
-                <span>👤</span> 个人资料
-            </a>
-            {% if user.username == 'admin' %}
-            <a href="/admin/users" class="nav-item">
-                <span>👥</span> 用户管理
-            </a>
-            {% endif %}
-            <a href="/auth/logout" class="nav-item" onclick="logout(event)">
-                <span>🚪</span> 退出登录
-            </a>
-        </nav>
-    </aside>
-
-    <main class="main-content">
-        <div class="content-header">
-            <h2>修改密码</h2>
-        </div>
-
-        <div class="password-card">
-            <div id="alert-container"></div>
-
-            <form id="changePasswordForm">
-                <div class="form-group">
-                    <label for="old_password">当前密码</label>
-                    <input type="password" id="old_password" name="old_password" required autocomplete="current-password">
-                </div>
-                <div class="form-group">
-                    <label for="new_password">新密码</label>
-                    <input type="password" id="new_password" name="new_password" required autocomplete="new-password">
-                    <small class="text-muted">密码至少8位，包含大小写字母、数字和特殊字符</small>
-                </div>
-                <div class="form-group">
-                    <label for="confirm_password">确认新密码</label>
-                    <input type="password" id="confirm_password" name="confirm_password" required autocomplete="new-password">
-                </div>
-                <button type="submit" class="btn btn-primary">修改密码</button>
-            </form>
-        </div>
-    </main>
+{% set nav_active = 'password' %}
+{% block main %}
+<div class="content-header">
+    <h2>修改密码</h2>
 </div>
 
-<style>
-.password-card {
-    background: #fff;
-    padding: 32px;
-    border-radius: 8px;
-    border: 1px solid #e0e0e0;
-    max-width: 450px;
-}
-.text-muted {
-    display: block;
-    margin-top: 4px;
-    font-size: 12px;
-    color: #6b7280;
-}
-#alert-container {
-    margin-bottom: 16px;
-}
-.alert {
-    padding: 12px 16px;
-    border-radius: 6px;
-    margin-bottom: 12px;
-    font-size: 14px;
-}
-.alert-error {
-    background: #fef2f2;
-    color: #991b1b;
-    border: 1px solid #fecaca;
-}
-.alert-success {
-    background: #f0fdf4;
-    color: #166534;
-    border: 1px solid #bbf7d0;
-}
-</style>
+<div class="password-card">
+    <div id="alert-container"></div>
+    <form id="changePasswordForm">
+        <div class="form-group">
+            <label for="old_password">当前密码</label>
+            <input type="password" id="old_password" name="old_password" required autocomplete="current-password">
+        </div>
+        <div class="form-group">
+            <label for="new_password">新密码</label>
+            <input type="password" id="new_password" name="new_password" required autocomplete="new-password">
+            <small class="text-muted">密码至少8位，包含大小写字母、数字和特殊字符</small>
+        </div>
+        <div class="form-group">
+            <label for="confirm_password">确认新密码</label>
+            <input type="password" id="confirm_password" name="confirm_password" required autocomplete="new-password">
+        </div>
+        <button type="submit" class="btn btn-primary">修改密码</button>
+    </form>
+</div>
 
 <script>
 document.getElementById('changePasswordForm').addEventListener('submit', async function(e) {
@@ -102,10 +34,8 @@ document.getElementById('changePasswordForm').addEventListener('submit', async f
     const newPassword = document.getElementById('new_password').value;
     const confirmPassword = document.getElementById('confirm_password').value;
 
-    // Clear previous alerts
     clearAlerts();
 
-    // Client-side validation
     if (newPassword !== confirmPassword) {
         showAlert('error', '两次输入的密码不一致');
         return;
@@ -119,9 +49,7 @@ document.getElementById('changePasswordForm').addEventListener('submit', async f
     try {
         const response = await fetch('/password/change', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 old_password: oldPassword,
                 new_password: newPassword
@@ -132,9 +60,7 @@ document.getElementById('changePasswordForm').addEventListener('submit', async f
 
         if (response.ok) {
             showAlert('success', data.message || '密码修改成功，正在跳转...');
-            setTimeout(() => {
-                window.location.href = '/dashboard';
-            }, 2000);
+            setTimeout(() => { window.location.href = '/dashboard'; }, 2000);
         } else {
             showAlert('error', data.detail || '密码修改失败');
         }
@@ -152,14 +78,7 @@ function showAlert(type, message) {
 }
 
 function clearAlerts() {
-    const container = document.getElementById('alert-container');
-    container.innerHTML = '';
-}
-
-function logout(e) {
-    e.preventDefault();
-    fetch('/auth/logout', { method: 'POST' })
-        .then(() => window.location.href = '/login');
+    document.getElementById('alert-container').innerHTML = '';
 }
 </script>
 {% endblock %}
