@@ -9,6 +9,9 @@ from hindsight_manager.auth.audit import log_audit
 from hindsight_manager.auth.dependencies import require_admin
 from hindsight_manager.auth.password import hash_password, validate_password_strength, PasswordStrengthError
 from hindsight_manager.db import get_session
+from hindsight_manager.models.api_key import ApiKey
+from hindsight_manager.models.tenant import Tenant, TenantStatus
+from hindsight_manager.models.tenant_member import TenantMember
 from hindsight_manager.models.user import AuthProvider, User, UserRole
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -52,6 +55,17 @@ class PaginatedResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class AdminTenantResponse(BaseModel):
+    id: str
+    name: str
+    schema_name: str
+    status: str
+    config: dict | None
+    created_at: str
+    member_count: int
+    api_key_count: int
 
 
 # ─── 辅助函数 ───
@@ -242,4 +256,70 @@ async def admin_reset_password(
     )
     await session.commit()
 
+    return {"ok": True}
+
+
+# ─── 租户管理端点 ───
+
+@router.get("/tenants")
+async def list_tenants_admin(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None),
+    current_user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    query = select(Tenant).order_by(Tenant.created_at.desc())
+    count_query = select(func.count()).select_from(Tenant)
+
+    if search:
+        query = query.where(Tenant.name.ilike(f"%{search}%"))
+        count_query = count_query.where(Tenant.name.ilike(f"%{search}%"))
+
+    total_result = await session.execute(count_query)
+    total = total_result.scalar() or 0
+
+    offset = (page - 1) * page_size
+    result = await session.execute(query.offset(offset).limit(page_size))
+    tenants = result.scalars().all()
+
+    items = []
+    for t in tenants:
+        mc_result = await session.execute(
+            select(func.count()).select_from(TenantMember).where(TenantMember.tenant_id == t.id)
+        )
+        member_count = mc_result.scalar() or 0
+
+        kc_result = await session.execute(
+            select(func.count()).select_from(ApiKey).where(ApiKey.tenant_id == t.id)
+        )
+        api_key_count = kc_result.scalar() or 0
+
+        items.append(AdminTenantResponse(
+            id=str(t.id), name=t.name, schema_name=t.schema_name,
+            status=t.status.value, config=t.config, created_at=str(t.created_at),
+            member_count=member_count, api_key_count=api_key_count,
+        ))
+
+    return PaginatedResponse(items=items, total=total, page=page, page_size=page_size)
+
+
+@router.delete("/tenants/{tenant_id}")
+async def delete_tenant_admin(
+    tenant_id: uuid.UUID,
+    request: Request,
+    current_user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    tenant = await session.get(Tenant, tenant_id)
+    if not tenant:
+        raise HTTPException(status_code=404, detail="租户不存在")
+
+    tenant.status = TenantStatus.DELETING
+    await log_audit(
+        session, user_id=current_user.id, action="tenant.delete",
+        resource_type="tenant", resource_id=str(tenant_id),
+        detail={"name": tenant.name}, ip_address=_get_client_ip(request),
+    )
+    await session.commit()
     return {"ok": True}
