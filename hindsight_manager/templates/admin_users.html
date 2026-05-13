@@ -1,0 +1,122 @@
+{% extends "admin_base.html" %}
+{% block title %}用户管理 - Hindsight{% endblock %}
+{% set nav_active = 'users' %}
+{% block main %}
+<div class="content-header">
+    <h2>用户管理</h2>
+    <div class="content-header-actions">
+        <input type="text" id="user-search" placeholder="搜索用户名或邮箱..." class="search-input" oninput="searchUsers()">
+        <button class="btn btn-primary" onclick="showCreateUserModal()">+ 创建用户</button>
+    </div>
+</div>
+
+<div id="users-table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>用户名</th>
+                <th>邮箱</th>
+                <th>角色</th>
+                <th>状态</th>
+                <th>创建时间</th>
+                <th>最后登录</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="users-tbody">
+        </tbody>
+    </table>
+    <div id="users-pagination" class="pagination"></div>
+</div>
+
+<!-- 创建用户弹窗 -->
+<div id="create-user-modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="hideCreateUserModal()"></div>
+    <div class="modal-content">
+        <h3>创建用户</h3>
+        <form id="create-user-form" onsubmit="createUser(event)">
+            <div class="form-group">
+                <label>用户名</label>
+                <input type="text" id="cu-username" required placeholder="输入用户名">
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="cu-password" required placeholder="输入密码（至少8位，含大小写和数字）">
+            </div>
+            <div class="form-group">
+                <label>显示名</label>
+                <input type="text" id="cu-display-name" required placeholder="输入显示名">
+            </div>
+            <div class="form-group">
+                <label>邮箱（可选）</label>
+                <input type="email" id="cu-email" placeholder="输入邮箱">
+            </div>
+            <div class="form-group">
+                <label>角色</label>
+                <select id="cu-role">
+                    <option value="user">普通用户</option>
+                    <option value="admin">管理员</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="hideCreateUserModal()">取消</button>
+                <button type="submit" class="btn btn-primary">创建</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 编辑用户弹窗 -->
+<div id="edit-user-modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="hideEditUserModal()"></div>
+    <div class="modal-content">
+        <h3>编辑用户</h3>
+        <form id="edit-user-form" onsubmit="updateUser(event)">
+            <input type="hidden" id="eu-id">
+            <div class="form-group">
+                <label>显示名</label>
+                <input type="text" id="eu-display-name" required>
+            </div>
+            <div class="form-group">
+                <label>邮箱</label>
+                <input type="email" id="eu-email">
+            </div>
+            <div class="form-group">
+                <label>角色</label>
+                <select id="eu-role">
+                    <option value="user">普通用户</option>
+                    <option value="admin">管理员</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="hideEditUserModal()">取消</button>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 重置密码弹窗 -->
+<div id="reset-password-modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="hideResetPasswordModal()"></div>
+    <div class="modal-content">
+        <h3>重置密码</h3>
+        <form id="reset-password-form" onsubmit="resetPassword(event)">
+            <input type="hidden" id="rp-id">
+            <div class="form-group">
+                <label>新密码</label>
+                <input type="password" id="rp-password" required placeholder="输入新密码">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="hideResetPasswordModal()">取消</button>
+                <button type="submit" class="btn btn-primary">重置</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="/static/admin.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => loadUsers());
+</script>
+{% endblock %}
