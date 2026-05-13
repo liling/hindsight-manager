@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hindsight_manager.auth.cas import CASAuth, CASClient
-from hindsight_manager.auth.dependencies import SESSION_COOKIE, get_current_user
+from hindsight_manager.auth.dependencies import SESSION_COOKIE, get_current_user, require_admin
 from hindsight_manager.auth.local import verify_password
 from hindsight_manager.auth.password import hash_password, validate_password_strength, PasswordStrengthError
 from hindsight_manager.auth.session import create_access_token, create_otp, create_token, exchange_otp
@@ -299,13 +299,10 @@ class CreateUserRequest(BaseModel):
 @router.post("/users", response_model=UserResponse)
 async def create_user(
     req: CreateUserRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
     """Create a new user (admin only)."""
-    # Check if current user is admin
-    if current_user.username != "admin":
-        raise HTTPException(status_code=403, detail="Only admin can create users")
 
     # Check if username already exists
     result = await session.execute(select(User).where(User.username == req.username))

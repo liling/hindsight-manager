@@ -50,8 +50,8 @@ async def _ensure_admin_user(engine: AsyncEngine) -> None:
         hashed = hash_password(settings.admin_password)
         await conn.execute(
             text(
-                "INSERT INTO manager.users (id, username, password_hash, display_name, auth_provider) "
-                "VALUES ('a0000000-0000-0000-0000-000000000001', 'admin', :ph, 'Admin', 'LOCAL')"
+                "INSERT INTO manager.users (id, username, password_hash, display_name, auth_provider, role) "
+                "VALUES ('a0000000-0000-0000-0000-000000000001', 'admin', :ph, 'Admin', 'LOCAL', 'ADMIN')"
             ),
             {"ph": hashed},
         )
