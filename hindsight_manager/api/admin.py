@@ -298,8 +298,17 @@ async def list_tenants_admin(
     count_query = select(func.count()).select_from(Tenant)
 
     if search:
-        query = query.where(Tenant.name.ilike(f"%{search}%"))
-        count_query = count_query.where(Tenant.name.ilike(f"%{search}%"))
+        pattern = f"%{search}%"
+        owner_subquery = (
+            select(TenantMember.tenant_id)
+            .join(User, User.id == TenantMember.user_id)
+            .where(
+                TenantMember.role == MemberRole.OWNER,
+                (User.username.ilike(pattern)) | (User.display_name.ilike(pattern)) | (User.email.ilike(pattern)),
+            )
+        )
+        query = query.where(Tenant.name.ilike(pattern) | Tenant.id.in_(owner_subquery))
+        count_query = count_query.where(Tenant.name.ilike(pattern) | Tenant.id.in_(owner_subquery))
 
     total_result = await session.execute(count_query)
     total = total_result.scalar() or 0
