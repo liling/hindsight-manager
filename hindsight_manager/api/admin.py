@@ -10,6 +10,7 @@ from hindsight_manager.auth.dependencies import require_admin
 from hindsight_manager.auth.password import hash_password, validate_password_strength, PasswordStrengthError
 from hindsight_manager.db import get_session
 from hindsight_manager.models.api_key import ApiKey
+from hindsight_manager.models.audit_log import AuditLog
 from hindsight_manager.models.tenant import Tenant, TenantStatus
 from hindsight_manager.models.tenant_member import TenantMember
 from hindsight_manager.models.user import AuthProvider, User, UserRole
@@ -66,6 +67,29 @@ class AdminTenantResponse(BaseModel):
     created_at: str
     member_count: int
     api_key_count: int
+
+
+class AdminApiKeyResponse(BaseModel):
+    id: str
+    name: str
+    key_prefix: str
+    is_system: bool
+    created_at: str
+    last_used_at: str | None
+    tenant_id: str
+    tenant_name: str
+
+
+class AdminAuditLogResponse(BaseModel):
+    id: str
+    user_id: str | None
+    username: str | None
+    action: str
+    resource_type: str
+    resource_id: str
+    detail: dict | None
+    ip_address: str | None
+    created_at: str
 
 
 # ─── 辅助函数 ───
@@ -323,3 +347,115 @@ async def delete_tenant_admin(
     )
     await session.commit()
     return {"ok": True}
+
+
+# ─── API Key 管理端点 ───
+
+@router.get("/api-keys")
+async def list_api_keys_admin(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    tenant_id: uuid.UUID | None = Query(None),
+    current_user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    query = (
+        select(ApiKey, Tenant)
+        .join(Tenant, ApiKey.tenant_id == Tenant.id)
+        .order_by(ApiKey.created_at.desc())
+    )
+    count_query = (
+        select(func.count())
+        .select_from(ApiKey)
+        .join(Tenant, ApiKey.tenant_id == Tenant.id)
+    )
+
+    if tenant_id:
+        query = query.where(ApiKey.tenant_id == tenant_id)
+        count_query = count_query.where(ApiKey.tenant_id == tenant_id)
+
+    total_result = await session.execute(count_query)
+    total = total_result.scalar() or 0
+
+    offset = (page - 1) * page_size
+    result = await session.execute(query.offset(offset).limit(page_size))
+    rows = result.all()
+
+    items = []
+    for key, tenant in rows:
+        def _fmt(v):
+            return v.isoformat() if hasattr(v, "isoformat") else str(v) if v else None
+        items.append(AdminApiKeyResponse(
+            id=str(key.id), name=key.name, key_prefix=key.key_prefix,
+            is_system=key.is_system, created_at=_fmt(key.created_at),
+            last_used_at=_fmt(key.last_used_at),
+            tenant_id=str(tenant.id), tenant_name=tenant.name,
+        ))
+
+    return PaginatedResponse(items=items, total=total, page=page, page_size=page_size)
+
+
+@router.delete("/api-keys/{key_id}")
+async def revoke_api_key_admin(
+    key_id: uuid.UUID,
+    request: Request,
+    current_user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    result = await session.execute(select(ApiKey).where(ApiKey.id == key_id))
+    api_key = result.scalar_one_or_none()
+    if not api_key:
+        raise HTTPException(status_code=404, detail="API Key 不存在")
+
+    await log_audit(
+        session, user_id=current_user.id, action="api_key.revoke",
+        resource_type="api_key", resource_id=str(key_id),
+        detail={"name": api_key.name, "tenant_id": str(api_key.tenant_id)},
+        ip_address=_get_client_ip(request),
+    )
+    await session.delete(api_key)
+    await session.commit()
+    return {"ok": True}
+
+
+# ─── 审计日志端点 ───
+
+@router.get("/audit-logs")
+async def list_audit_logs(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    action: str | None = Query(None),
+    resource_type: str | None = Query(None),
+    current_user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    query = select(AuditLog, User).outerjoin(User, AuditLog.user_id == User.id).order_by(AuditLog.created_at.desc())
+    count_query = select(func.count()).select_from(AuditLog)
+
+    if action:
+        query = query.where(AuditLog.action == action)
+        count_query = count_query.where(AuditLog.action == action)
+    if resource_type:
+        query = query.where(AuditLog.resource_type == resource_type)
+        count_query = count_query.where(AuditLog.resource_type == resource_type)
+
+    total_result = await session.execute(count_query)
+    total = total_result.scalar() or 0
+
+    offset = (page - 1) * page_size
+    result = await session.execute(query.offset(offset).limit(page_size))
+    rows = result.all()
+
+    items = []
+    for log, user in rows:
+        def _fmt(v):
+            return v.isoformat() if hasattr(v, "isoformat") else str(v) if v else None
+        items.append(AdminAuditLogResponse(
+            id=str(log.id), user_id=str(log.user_id) if log.user_id else None,
+            username=user.username if user else None,
+            action=log.action, resource_type=log.resource_type,
+            resource_id=log.resource_id, detail=log.detail,
+            ip_address=log.ip_address, created_at=_fmt(log.created_at),
+        ))
+
+    return PaginatedResponse(items=items, total=total, page=page, page_size=page_size)
