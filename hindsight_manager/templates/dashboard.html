@@ -14,18 +14,21 @@
 {% else %}
 <div class="tenant-list">
     {% for t in tenants %}
-    <div class="tenant-card">
-        <div class="tenant-info">
-            <h3>{{ t.name }}</h3>
-            <span class="tenant-meta">{{ t.schema_name }} · {{ t.role }}</span>
+    <div>
+        <div class="tenant-card" id="tenant-card-{{ t.id }}">
+            <div class="tenant-info">
+                <h3>{{ t.name }}</h3>
+                <span class="tenant-meta">{{ t.schema_name }} · {{ t.role }}</span>
+            </div>
+            <div class="tenant-actions">
+                <button class="btn btn-primary btn-sm" onclick="enterConsole('{{ t.id }}', '{{ t.schema_name }}')">进入控制台</button>
+                {% if t.role == 'owner' %}
+                <button class="btn btn-secondary btn-sm" onclick="toggleApiKeys('{{ t.id }}')">API Keys</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteTenant('{{ t.id }}', '{{ t.name }}')">删除</button>
+                {% endif %}
+            </div>
         </div>
-        <div class="tenant-actions">
-            <button class="btn btn-primary btn-sm" onclick="enterConsole('{{ t.id }}', '{{ t.schema_name }}')">进入控制台</button>
-            {% if t.role == 'owner' %}
-            <button class="btn btn-secondary btn-sm" onclick="showApiKeys('{{ t.id }}', '{{ t.name }}')">API Keys</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteTenant('{{ t.id }}', '{{ t.name }}')">删除</button>
-            {% endif %}
-        </div>
+        <div id="api-keys-panel-{{ t.id }}" class="api-keys-panel" style="display:none"></div>
     </div>
     {% endfor %}
 </div>
@@ -47,10 +50,40 @@
         </form>
     </div>
 </div>
+
+<div id="apikey-modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="hideApiKeyModal()"></div>
+    <div class="modal-content">
+        <h3>创建 API Key</h3>
+        <div id="apikey-modal-form">
+            <form id="apikey-form" onsubmit="createApiKey(event)">
+                <div class="form-group">
+                    <label for="apikey-name">名称</label>
+                    <input type="text" id="apikey-name" name="name" required placeholder="输入 API Key 名称">
+                    <input type="hidden" id="apikey-tenant-id">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="hideApiKeyModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">创建</button>
+                </div>
+            </form>
+        </div>
+        <div id="apikey-modal-result" class="api-key-result" style="display:none">
+            <p style="font-weight:600;color:var(--success-text)">API Key 创建成功</p>
+            <p style="font-size:13px;margin-top:6px;color:var(--text-secondary)">请立即复制，关闭后将无法再次查看完整 Key。</p>
+            <div class="api-key-result-key">
+                <code id="apikey-result-value"></code>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="copyKey(document.getElementById('apikey-result-value').textContent)">复制</button>
+            </div>
+            <div class="api-key-result-warning">
+                <span>&#9888;</span>
+                <span>关闭此对话框后，完整 Key 将不再显示。请确保已妥善保存。</span>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-primary" onclick="hideApiKeyModal()">我已保存</button>
+            </div>
+        </div>
+    </div>
+</div>
 <script src="/static/app.js"></script>
-<script>
-function showApiKeys(tenantId, tenantName) {
-    alert('API Keys 功能开发中...\n租户: ' + tenantName);
-}
-</script>
 {% endblock %}
