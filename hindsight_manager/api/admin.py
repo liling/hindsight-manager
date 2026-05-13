@@ -15,7 +15,7 @@ from hindsight_manager.models.tenant import Tenant, TenantStatus
 from hindsight_manager.models.tenant_member import TenantMember
 from hindsight_manager.models.user import AuthProvider, User, UserRole
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(prefix="/admin/api", tags=["admin"])
 
 
 # ─── Pydantic 模型 ───

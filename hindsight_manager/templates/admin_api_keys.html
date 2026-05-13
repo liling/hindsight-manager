@@ -34,7 +34,7 @@
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   loadApiKeys();
-  apiFetch("/admin/tenants?page_size=100").then(r => r && r.json()).then(data => {
+  apiFetch("/admin/api/tenants?page_size=100").then(r => r && r.json()).then(data => {
     if (!data) return;
     const sel = document.getElementById("ak-tenant-filter");
     data.items.forEach(t => {

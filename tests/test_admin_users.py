@@ -73,7 +73,7 @@ async def normal_client():
 
 
 async def test_list_users_requires_admin(normal_client: AsyncClient):
-    resp = await normal_client.get("/admin/users")
+    resp = await normal_client.get("/admin/api/users")
     assert resp.status_code == 403
 
 
@@ -83,14 +83,14 @@ async def test_list_users_admin_allowed(admin_client):
     mock_result.scalars.return_value.all.return_value = []
     mock_session.execute.return_value = mock_result
 
-    resp = await client.get("/admin/users")
+    resp = await client.get("/admin/api/users")
     assert resp.status_code == 200
     assert isinstance(resp.json(), dict)
     assert "items" in resp.json()
 
 
 async def test_create_user_requires_admin(normal_client: AsyncClient):
-    resp = await normal_client.post("/admin/users", json={
+    resp = await normal_client.post("/admin/api/users", json={
         "username": "newuser",
         "password": "StrongPass123!",
         "display_name": "New User",
@@ -100,7 +100,7 @@ async def test_create_user_requires_admin(normal_client: AsyncClient):
 
 async def test_create_user_weak_password_rejected(admin_client):
     client, mock_session = admin_client
-    resp = await client.post("/admin/users", json={
+    resp = await client.post("/admin/api/users", json={
         "username": "newuser",
         "password": "weak",
         "display_name": "New User",
@@ -129,7 +129,7 @@ async def test_create_user_success(admin_client):
     mock_session.refresh = AsyncMock(side_effect=mock_refresh)
 
     with patch("hindsight_manager.api.admin.hash_password", return_value="$2b$12$hashed"):
-        resp = await client.post("/admin/users", json={
+        resp = await client.post("/admin/api/users", json={
             "username": "newuser",
             "password": "StrongPass123!",
             "display_name": "New User",
@@ -148,7 +148,7 @@ async def test_create_user_duplicate_username(admin_client):
     mock_execute_result.scalar_one_or_none.return_value = MagicMock()
     mock_session.execute.return_value = mock_execute_result
 
-    resp = await client.post("/admin/users", json={
+    resp = await client.post("/admin/api/users", json={
         "username": "existinguser",
         "password": "StrongPass123!",
         "display_name": "Existing User",
@@ -159,7 +159,7 @@ async def test_create_user_duplicate_username(admin_client):
 
 async def test_update_user_requires_admin(normal_client: AsyncClient):
     user_id = uuid.uuid4()
-    resp = await normal_client.patch(f"/admin/users/{user_id}", json={
+    resp = await normal_client.patch(f"/admin/api/users/{user_id}", json={
         "display_name": "Updated",
     })
     assert resp.status_code == 403
@@ -170,7 +170,7 @@ async def test_update_user_not_found(admin_client):
     mock_session.get.return_value = None
 
     user_id = uuid.uuid4()
-    resp = await client.patch(f"/admin/users/{user_id}", json={
+    resp = await client.patch(f"/admin/api/users/{user_id}", json={
         "display_name": "Updated",
     })
     assert resp.status_code == 404
@@ -178,7 +178,7 @@ async def test_update_user_not_found(admin_client):
 
 async def test_delete_user_requires_admin(normal_client: AsyncClient):
     user_id = uuid.uuid4()
-    resp = await normal_client.delete(f"/admin/users/{user_id}")
+    resp = await normal_client.delete(f"/admin/api/users/{user_id}")
     assert resp.status_code == 403
 
 
@@ -187,13 +187,13 @@ async def test_disable_user_not_found(admin_client):
     mock_session.get.return_value = None
 
     user_id = uuid.uuid4()
-    resp = await client.delete(f"/admin/users/{user_id}")
+    resp = await client.delete(f"/admin/api/users/{user_id}")
     assert resp.status_code == 404
 
 
 async def test_reset_password_requires_admin(normal_client: AsyncClient):
     user_id = uuid.uuid4()
-    resp = await normal_client.post(f"/admin/users/{user_id}/reset-password", json={
+    resp = await normal_client.post(f"/admin/api/users/{user_id}/reset-password", json={
         "new_password": "NewStrong123!",
     })
     assert resp.status_code == 403
@@ -205,7 +205,7 @@ async def test_reset_password_weak_rejected(admin_client):
     mock_session.get.return_value = user
 
     user_id = uuid.uuid4()
-    resp = await client.post(f"/admin/users/{user_id}/reset-password", json={
+    resp = await client.post(f"/admin/api/users/{user_id}/reset-password", json={
         "new_password": "weak",
     })
     assert resp.status_code == 400
