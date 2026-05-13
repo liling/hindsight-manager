@@ -1,0 +1,49 @@
+{% extends "admin_base.html" %}
+{% block title %}API Key 管理 - Hindsight{% endblock %}
+{% set nav_active = 'api_keys' %}
+{% block main %}
+<div class="content-header">
+    <h2>API Key 管理</h2>
+</div>
+
+<div class="filter-bar">
+    <select id="ak-tenant-filter" onchange="loadApiKeys(1)">
+        <option value="">全部租户</option>
+    </select>
+</div>
+
+<div id="apikeys-table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>名称</th>
+                <th>前缀</th>
+                <th>所属租户</th>
+                <th>创建时间</th>
+                <th>最后使用</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="apikeys-tbody">
+        </tbody>
+    </table>
+    <div id="apikeys-pagination" class="pagination"></div>
+</div>
+
+<script src="/static/admin.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  loadApiKeys();
+  apiFetch("/admin/tenants?page_size=100").then(r => r && r.json()).then(data => {
+    if (!data) return;
+    const sel = document.getElementById("ak-tenant-filter");
+    data.items.forEach(t => {
+      const opt = document.createElement("option");
+      opt.value = t.id;
+      opt.textContent = t.name;
+      sel.appendChild(opt);
+    });
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "admin_base.html" %}
+{% block title %}审计日志 - Hindsight{% endblock %}
+{% set nav_active = 'audit_logs' %}
+{% block main %}
+<div class="content-header">
+    <h2>审计日志</h2>
+</div>
+
+<div class="filter-bar">
+    <select id="al-action-filter" onchange="loadAuditLogs(1)">
+        <option value="">全部操作</option>
+        <option value="user.create">创建用户</option>
+        <option value="user.update">编辑用户</option>
+        <option value="user.disable">禁用用户</option>
+        <option value="user.enable">启用用户</option>
+        <option value="user.reset_password">重置密码</option>
+        <option value="tenant.delete">删除租户</option>
+        <option value="api_key.revoke">撤销 API Key</option>
+    </select>
+</div>
+
+<div id="audit-table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>时间</th>
+                <th>操作者</th>
+                <th>操作</th>
+                <th>资源类型</th>
+                <th>资源 ID</th>
+                <th>IP</th>
+                <th>详情</th>
+            </tr>
+        </thead>
+        <tbody id="audit-tbody">
+        </tbody>
+    </table>
+    <div id="audit-pagination" class="pagination"></div>
+</div>
+
+<script src="/static/admin.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => loadAuditLogs());
+</script>
+{% endblock %}

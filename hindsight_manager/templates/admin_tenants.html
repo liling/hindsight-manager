@@ -1,0 +1,35 @@
+{% extends "admin_base.html" %}
+{% block title %}租户管理 - Hindsight{% endblock %}
+{% set nav_active = 'tenants' %}
+{% block main %}
+<div class="content-header">
+    <h2>租户管理</h2>
+    <div class="content-header-actions">
+        <input type="text" id="tenant-search" placeholder="搜索租户名..." class="search-input" oninput="searchTenants()">
+    </div>
+</div>
+
+<div id="tenants-table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>名称</th>
+                <th>Schema</th>
+                <th>状态</th>
+                <th>成员数</th>
+                <th>API Key 数</th>
+                <th>创建时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="tenants-tbody">
+        </tbody>
+    </table>
+    <div id="tenants-pagination" class="pagination"></div>
+</div>
+
+<script src="/static/admin.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => loadTenants());
+</script>
+{% endblock %}
