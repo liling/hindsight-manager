@@ -8,6 +8,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from hindsight_manager.models.base import Base
 
 
+class UserRole(str, enum.Enum):
+    ADMIN = "admin"
+    USER = "user"
+
+
 class AuthProvider(str, enum.Enum):
     LOCAL = "local"
     CAS = "cas"
@@ -30,5 +35,11 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default="now()")
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean(), server_default="true", nullable=False)
+    role: Mapped[UserRole] = mapped_column(
+        Enum(UserRole, name="user_role", schema="manager"),
+        nullable=False,
+        default=UserRole.USER,
+        server_default="USER",
+    )
 
     memberships: Mapped[list["TenantMember"]] = relationship(back_populates="user")
