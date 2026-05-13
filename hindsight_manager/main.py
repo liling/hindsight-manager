@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
+from hindsight_manager.api.admin import router as admin_router
 from hindsight_manager.api.api_keys import router as api_keys_router
 from hindsight_manager.api.auth import router as auth_router
 from hindsight_manager.api.captcha import router as captcha_router
@@ -90,6 +91,7 @@ app.include_router(members_router)
 app.include_router(api_keys_router)
 app.include_router(proxy_router)
 app.include_router(captcha_router)
+app.include_router(admin_router)
 app.mount("/static", StaticFiles(directory="hindsight_manager/static"), name="static")
 
 

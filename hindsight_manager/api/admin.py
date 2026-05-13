@@ -1,0 +1,245 @@
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from hindsight_manager.auth.audit import log_audit
+from hindsight_manager.auth.dependencies import require_admin
+from hindsight_manager.auth.password import hash_password, validate_password_strength, PasswordStrengthError
+from hindsight_manager.db import get_session
+from hindsight_manager.models.user import AuthProvider, User, UserRole
+
+router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+# ─── Pydantic 模型 ───
+
+class AdminUserResponse(BaseModel):
+    id: str
+    username: str
+    email: str | None
+    display_name: str
+    role: str
+    is_active: bool
+    auth_provider: str
+    created_at: str
+    last_login_at: str | None
+
+
+class AdminCreateUserRequest(BaseModel):
+    username: str
+    password: str
+    email: str | None = None
+    display_name: str
+    role: UserRole = UserRole.USER
+
+
+class AdminUpdateUserRequest(BaseModel):
+    email: str | None = None
+    display_name: str | None = None
+    role: UserRole | None = None
+    is_active: bool | None = None
+
+
+class AdminResetPasswordRequest(BaseModel):
+    new_password: str
+
+
+class PaginatedResponse(BaseModel):
+    items: list
+    total: int
+    page: int
+    page_size: int
+
+
+# ─── 辅助函数 ───
+
+def _admin_user_response(u: User) -> AdminUserResponse:
+    return AdminUserResponse(
+        id=str(u.id),
+        username=u.username,
+        email=u.email,
+        display_name=u.display_name,
+        role=u.role.value,
+        is_active=u.is_active,
+        auth_provider=u.auth_provider.value,
+        created_at=str(u.created_at),
+        last_login_at=u.last_login_at.isoformat() if hasattr(u.last_login_at, "isoformat") else (str(u.last_login_at) if u.last_login_at else None),
+    )
+
+
+def _get_client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+# ─── 用户管理端点 ───
+
+@router.get("/users")
+async def list_users(
+    request: Request,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None),
+    current_user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    query = select(User).order_by(User.created_at.desc())
+    count_query = select(func.count()).select_from(User)
+
+    if search:
+        query = query.where(
+            (User.username.ilike(f"%{search}%")) | (User.email.ilike(f"%{search}%"))
+        )
+        count_query = count_query.where(
+            (User.username.ilike(f"%{search}%")) | (User.email.ilike(f"%{search}%"))
+        )
+
+    total_result = await session.execute(count_query)
+    total = total_result.scalar() or 0
+
+    offset = (page - 1) * page_size
+    query = query.offset(offset).limit(page_size)
+    result = await session.execute(query)
+    users = result.scalars().all()
+
+    return PaginatedResponse(
+        items=[_admin_user_response(u) for u in users],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.post("/users", response_model=AdminUserResponse, status_code=201)
+async def admin_create_user(
+    req: AdminCreateUserRequest,
+    request: Request,
+    current_user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    result = await session.execute(select(User).where(User.username == req.username))
+    if result.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="用户名已存在")
+
+    try:
+        validate_password_strength(req.password)
+    except PasswordStrengthError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    user = User(
+        username=req.username,
+        password_hash=hash_password(req.password),
+        email=req.email,
+        display_name=req.display_name,
+        auth_provider=AuthProvider.LOCAL,
+        role=req.role,
+    )
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+
+    await log_audit(
+        session, user_id=current_user.id, action="user.create",
+        resource_type="user", resource_id=str(user.id),
+        detail={"username": user.username, "role": user.role.value},
+        ip_address=_get_client_ip(request),
+    )
+    await session.commit()
+
+    return _admin_user_response(user)
+
+
+@router.patch("/users/{user_id}", response_model=AdminUserResponse)
+async def admin_update_user(
+    user_id: uuid.UUID,
+    req: AdminUpdateUserRequest,
+    request: Request,
+    current_user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    user = await session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+
+    changes = {}
+    for field, value in req.model_dump(exclude_none=True).items():
+        old_val = getattr(user, field)
+        if value != old_val:
+            setattr(user, field, value)
+            changes[field] = {"old": str(old_val), "new": str(value)}
+
+    await session.commit()
+    await session.refresh(user)
+
+    if changes:
+        await log_audit(
+            session, user_id=current_user.id, action="user.update",
+            resource_type="user", resource_id=str(user_id),
+            detail=changes, ip_address=_get_client_ip(request),
+        )
+        await session.commit()
+
+    return _admin_user_response(user)
+
+
+@router.delete("/users/{user_id}")
+async def admin_disable_user(
+    user_id: uuid.UUID,
+    request: Request,
+    current_user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    user = await session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+
+    if str(user.id) == str(current_user.id):
+        raise HTTPException(status_code=400, detail="不能禁用自己")
+
+    user.is_active = not user.is_active
+    await session.commit()
+
+    action = "user.enable" if user.is_active else "user.disable"
+    await log_audit(
+        session, user_id=current_user.id, action=action,
+        resource_type="user", resource_id=str(user_id),
+        ip_address=_get_client_ip(request),
+    )
+    await session.commit()
+
+    return {"ok": True, "is_active": user.is_active}
+
+
+@router.post("/users/{user_id}/reset-password")
+async def admin_reset_password(
+    user_id: uuid.UUID,
+    req: AdminResetPasswordRequest,
+    request: Request,
+    current_user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    user = await session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+
+    try:
+        validate_password_strength(req.new_password)
+    except PasswordStrengthError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    user.password_hash = hash_password(req.new_password)
+    await session.commit()
+
+    await log_audit(
+        session, user_id=current_user.id, action="user.reset_password",
+        resource_type="user", resource_id=str(user_id),
+        ip_address=_get_client_ip(request),
+    )
+    await session.commit()
+
+    return {"ok": True}
