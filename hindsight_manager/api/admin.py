@@ -12,7 +12,7 @@ from hindsight_manager.db import get_session
 from hindsight_manager.models.api_key import ApiKey
 from hindsight_manager.models.audit_log import AuditLog
 from hindsight_manager.models.tenant import Tenant, TenantStatus
-from hindsight_manager.models.tenant_member import TenantMember
+from hindsight_manager.models.tenant_member import MemberRole, TenantMember
 from hindsight_manager.models.user import AuthProvider, User, UserRole
 
 router = APIRouter(prefix="/admin/api", tags=["admin"])
@@ -67,6 +67,7 @@ class AdminTenantResponse(BaseModel):
     created_at: str
     member_count: int
     api_key_count: int
+    owner: str | None
 
 
 class AdminApiKeyResponse(BaseModel):
@@ -319,10 +320,19 @@ async def list_tenants_admin(
         )
         api_key_count = kc_result.scalar() or 0
 
+        owner_result = await session.execute(
+            select(User.username)
+            .join(TenantMember, TenantMember.user_id == User.id)
+            .where(TenantMember.tenant_id == t.id, TenantMember.role == MemberRole.OWNER)
+            .limit(1)
+        )
+        owner = owner_result.scalar_one_or_none()
+
         items.append(AdminTenantResponse(
             id=str(t.id), name=t.name, schema_name=t.schema_name,
             status=t.status.value, config=t.config, created_at=str(t.created_at),
             member_count=member_count, api_key_count=api_key_count,
+            owner=owner,
         ))
 
     return PaginatedResponse(items=items, total=total, page=page, page_size=page_size)

@@ -204,12 +204,13 @@ async function loadTenants(page = 1) {
   const tbody = document.getElementById("tenants-tbody");
   if (!tbody) return;
   if (data.items.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">暂无数据</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">暂无数据</td></tr>';
   } else {
     tbody.innerHTML = data.items.map(t => `
       <tr>
         <td>${escapeHtml(t.name)}</td>
         <td><code>${escapeHtml(t.schema_name)}</code></td>
+        <td>${escapeHtml(t.owner || "-")}</td>
         <td><span class="badge ${t.status === 'active' ? 'badge-success' : 'badge-danger'}">${t.status}</span></td>
         <td>${t.member_count}</td>
         <td>${t.api_key_count}</td>
