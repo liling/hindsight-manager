@@ -16,7 +16,7 @@ class ApiKey(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     is_system: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     encrypted_key: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[str] = mapped_column(server_default="now()")
+    created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_used_at: Mapped[str | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

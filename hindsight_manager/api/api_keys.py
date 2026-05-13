@@ -71,13 +71,16 @@ async def create_api_key(
     await session.commit()
     await session.refresh(api_key)
 
+    def _fmt(v):
+        return v.isoformat() if hasattr(v, "isoformat") else str(v)
+
     return ApiKeyCreatedResponse(
         id=str(api_key.id),
         name=api_key.name,
         key_prefix=api_key.key_prefix,
         is_system=False,
-        created_at=api_key.created_at.isoformat(),
-        last_used_at=api_key.last_used_at.isoformat() if api_key.last_used_at else None,
+        created_at=_fmt(api_key.created_at),
+        last_used_at=_fmt(api_key.last_used_at) if api_key.last_used_at else None,
         key=raw_key,
     )
 
@@ -92,14 +95,19 @@ async def list_api_keys(
     result = await session.execute(
         select(ApiKey).where(ApiKey.tenant_id == tenant_id).order_by(ApiKey.is_system.desc(), ApiKey.created_at.desc())
     )
+    def _fmt_dt(v):
+        if v is None:
+            return None
+        return v.isoformat() if hasattr(v, "isoformat") else str(v)
+
     return [
         ApiKeyResponse(
             id=str(k.id),
             name=k.name,
             key_prefix=k.key_prefix,
             is_system=k.is_system,
-            created_at=k.created_at.isoformat(),
-            last_used_at=k.last_used_at.isoformat() if k.last_used_at else None,
+            created_at=_fmt_dt(k.created_at),
+            last_used_at=_fmt_dt(k.last_used_at),
         )
         for k in result.scalars().all()
     ]
