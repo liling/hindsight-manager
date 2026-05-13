@@ -4,7 +4,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from hindsight_manager.auth.dependencies import get_current_user, get_current_user_or_none
+from hindsight_manager.auth.dependencies import get_current_user, get_current_user_or_none, require_admin
 from hindsight_manager.db import get_session
 from hindsight_manager.models.api_key import ApiKey
 from hindsight_manager.models.tenant import Tenant
@@ -138,3 +138,35 @@ async def profile_page(
         request, "profile.html",
         {"user": current_user},
     )
+
+
+@router.get("/admin/users", response_class=HTMLResponse)
+async def admin_users_page(
+    request: Request,
+    current_user: User = Depends(require_admin),
+):
+    return templates.TemplateResponse(request, "admin_users.html", {"user": current_user, "nav_active": "users"})
+
+
+@router.get("/admin/tenants", response_class=HTMLResponse)
+async def admin_tenants_page(
+    request: Request,
+    current_user: User = Depends(require_admin),
+):
+    return templates.TemplateResponse(request, "admin_tenants.html", {"user": current_user, "nav_active": "tenants"})
+
+
+@router.get("/admin/api-keys", response_class=HTMLResponse)
+async def admin_api_keys_page(
+    request: Request,
+    current_user: User = Depends(require_admin),
+):
+    return templates.TemplateResponse(request, "admin_api_keys.html", {"user": current_user, "nav_active": "api_keys"})
+
+
+@router.get("/admin/audit-logs", response_class=HTMLResponse)
+async def admin_audit_logs_page(
+    request: Request,
+    current_user: User = Depends(require_admin),
+):
+    return templates.TemplateResponse(request, "admin_audit_logs.html", {"user": current_user, "nav_active": "audit_logs"})

@@ -83,6 +83,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(admin_router)
 app.include_router(pages_router)
 app.include_router(auth_router)
 app.include_router(password_router)
@@ -91,7 +92,6 @@ app.include_router(members_router)
 app.include_router(api_keys_router)
 app.include_router(proxy_router)
 app.include_router(captcha_router)
-app.include_router(admin_router)
 app.mount("/static", StaticFiles(directory="hindsight_manager/static"), name="static")
 
 
