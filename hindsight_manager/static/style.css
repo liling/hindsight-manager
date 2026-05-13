@@ -496,6 +496,114 @@ a:hover { text-decoration: underline; }
     margin-top: 24px;
 }
 
+/* ── API Keys Panel (Dashboard) ── */
+.api-keys-panel {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 var(--radius) var(--radius);
+    padding: 18px 22px;
+}
+.api-keys-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+}
+.api-keys-panel-header h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+}
+.api-key-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+}
+.api-key-item:last-child {
+    margin-bottom: 0;
+}
+.api-key-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.api-key-item-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+}
+.api-key-item-detail {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+}
+.api-key-item-detail code {
+    background: var(--bg);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+.api-key-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.api-key-empty {
+    text-align: center;
+    padding: 24px;
+    color: var(--text-muted);
+    font-size: 13.5px;
+}
+.api-key-result {
+    margin-top: 16px;
+    padding: 14px;
+    background: var(--success-bg);
+    border: 1px solid var(--success-border);
+    border-radius: var(--radius-sm);
+}
+.api-key-result-key {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+.api-key-result-key code {
+    flex: 1;
+    padding: 8px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    word-break: break-all;
+    color: var(--text);
+}
+.api-key-result-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: 10px;
+    font-size: 12.5px;
+    color: #92400e;
+    background: #fffbeb;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+}
+.tenant-card.has-panel {
+    border-radius: var(--radius) var(--radius) 0 0;
+    border-bottom-color: transparent;
+}
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
     .sidebar {
@@ -518,6 +626,14 @@ a:hover { text-decoration: underline; }
     }
     .tenant-actions,
     .api-key-actions {
+        align-self: flex-end;
+    }
+    .api-key-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .api-key-item-actions {
         align-self: flex-end;
     }
 }
