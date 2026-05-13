@@ -121,17 +121,17 @@ function renderApiKeysList(panel, tenantId, keys) {
   html += keys.map(k => `
     <div class="api-key-item" id="api-key-${k.id}">
       <div class="api-key-item-info">
-        <span class="api-key-item-name">${escapeHtml(k.name)}</span>
+        <span class="api-key-item-name">${escapeHtml(k.name)}${k.is_system ? ' <span class="badge badge-system">系统</span>' : ''}</span>
         <div class="api-key-item-detail">
           <code>${escapeHtml(k.key_prefix)}...</code>
           <span>创建于 ${formatDate(k.created_at)}</span>
           ${k.last_used_at ? `<span>最后使用 ${formatDate(k.last_used_at)}</span>` : '<span>未使用</span>'}
         </div>
       </div>
-      <div class="api-key-item-actions">
+      ${!k.is_system ? `<div class="api-key-item-actions">
         <button class="btn btn-ghost btn-sm" onclick="copyKey('${escapeHtml(k.key_prefix)}...')">复制前缀</button>
         <button class="btn btn-danger btn-sm" onclick="revokeApiKey('${tenantId}', '${k.id}')">删除</button>
-      </div>
+      </div>` : ''}
     </div>
   `).join('');
 

@@ -47,6 +47,7 @@ class ApiKeyResponse(BaseModel):
     id: str
     name: str
     key_prefix: str
+    is_system: bool
     created_at: str
     last_used_at: str | None
 
@@ -74,8 +75,9 @@ async def create_api_key(
         id=str(api_key.id),
         name=api_key.name,
         key_prefix=api_key.key_prefix,
-        created_at=str(api_key.created_at),
-        last_used_at=str(api_key.last_used_at) if api_key.last_used_at else None,
+        is_system=False,
+        created_at=api_key.created_at.isoformat(),
+        last_used_at=api_key.last_used_at.isoformat() if api_key.last_used_at else None,
         key=raw_key,
     )
 
@@ -87,14 +89,17 @@ async def list_api_keys(
     session: AsyncSession = Depends(get_session),
 ):
     await _require_owner(session, current_user, tenant_id)
-    result = await session.execute(select(ApiKey).where(ApiKey.tenant_id == tenant_id, ApiKey.is_system == False))
+    result = await session.execute(
+        select(ApiKey).where(ApiKey.tenant_id == tenant_id).order_by(ApiKey.is_system.desc(), ApiKey.created_at.desc())
+    )
     return [
         ApiKeyResponse(
             id=str(k.id),
             name=k.name,
             key_prefix=k.key_prefix,
-            created_at=str(k.created_at),
-            last_used_at=str(k.last_used_at) if k.last_used_at else None,
+            is_system=k.is_system,
+            created_at=k.created_at.isoformat(),
+            last_used_at=k.last_used_at.isoformat() if k.last_used_at else None,
         )
         for k in result.scalars().all()
     ]
