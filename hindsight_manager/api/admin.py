@@ -95,6 +95,15 @@ class AdminAuditLogResponse(BaseModel):
 
 # ─── 辅助函数 ───
 
+def _escape_like(value: str) -> str:
+    """Escape SQL LIKE wildcards in user input."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _like_pattern(value: str) -> str:
+    return f"%{_escape_like(value)}%"
+
+
 def _admin_user_response(u: User) -> AdminUserResponse:
     return AdminUserResponse(
         id=str(u.id),
@@ -112,7 +121,7 @@ def _admin_user_response(u: User) -> AdminUserResponse:
 def _get_client_ip(request: Request) -> str:
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
-        return forwarded.split(",")[0].strip()
+        return forwarded.split(",")[-1].strip()
     return request.client.host if request.client else "unknown"
 
 
@@ -131,11 +140,12 @@ async def list_users(
     count_query = select(func.count()).select_from(User)
 
     if search:
+        pattern = _like_pattern(search)
         query = query.where(
-            (User.username.ilike(f"%{search}%")) | (User.email.ilike(f"%{search}%"))
+            (User.username.ilike(pattern)) | (User.email.ilike(pattern))
         )
         count_query = count_query.where(
-            (User.username.ilike(f"%{search}%")) | (User.email.ilike(f"%{search}%"))
+            (User.username.ilike(pattern)) | (User.email.ilike(pattern))
         )
 
     total_result = await session.execute(count_query)
@@ -298,7 +308,7 @@ async def list_tenants_admin(
     count_query = select(func.count()).select_from(Tenant)
 
     if search:
-        pattern = f"%{search}%"
+        pattern = _like_pattern(search)
         owner_subquery = (
             select(TenantMember.tenant_id)
             .join(User, User.id == TenantMember.user_id)
