@@ -2,7 +2,7 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import pool
+from sqlalchemy import pool, text as sa_text
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from hindsight_manager.config import Settings
@@ -28,6 +28,10 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection):
+    if version_table_schema:
+        connection.execute(
+            sa_text(f"CREATE SCHEMA IF NOT EXISTS {version_table_schema}")
+        )
     context.configure(
         connection=connection,
         target_metadata=target_metadata,

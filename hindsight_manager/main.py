@@ -35,6 +35,7 @@ def _run_migrations() -> None:
     alembic_cfg = AlembicConfig()
     alembic_cfg.set_main_option("script_location", "hindsight_manager/migrations")
     alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
+    alembic_cfg.set_main_option("version_table_schema", settings.manager_schema)
     command.upgrade(alembic_cfg, "head")
     logger.info("Database migrations applied")
 
