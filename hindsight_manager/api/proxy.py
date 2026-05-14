@@ -84,11 +84,17 @@ async def proxy_route(
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail="Upstream timeout")
 
-    # Build response
-    response_headers = {}
-    for key, value in upstream_resp.headers.items():
-        if key.lower() not in ("content-encoding", "transfer-encoding", "content-length"):
-            response_headers[key] = value
+    # Only forward safe response headers from upstream
+    _SAFE_HEADERS = frozenset({
+        "content-type",
+        "content-disposition",
+        "cache-control",
+        "etag",
+        "x-request-id",
+    })
+    response_headers = {
+        k: v for k, v in upstream_resp.headers.items() if k.lower() in _SAFE_HEADERS
+    }
 
     return Response(
         content=upstream_resp.content,
