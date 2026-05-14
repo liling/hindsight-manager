@@ -4,7 +4,6 @@ import uuid
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +18,7 @@ from hindsight_manager.auth.password import (
 )
 from hindsight_manager.config import Settings
 from hindsight_manager.db import get_session
+from hindsight_manager.middleware.rate_limit import password_limiter
 from hindsight_manager.models.email_verification import EmailVerification
 from hindsight_manager.models.login_history import LoginHistory
 from hindsight_manager.models.user import User
@@ -89,11 +89,11 @@ async def _create_verification_code(
     expiry_minutes: int = 10,
 ) -> str:
     """Create and store verification code."""
-    import random
+    import secrets
     import string
 
     # Generate 6-digit code
-    code = "".join(random.choices(string.digits, k=6))
+    code = "".join(secrets.choice(string.digits) for _ in range(6))
 
     # Set expiry
     expires_at = datetime.now() + timedelta(minutes=expiry_minutes)
@@ -229,8 +229,9 @@ async def reset_password(
 
 @router.post("/forgot", response_model=MessageResponse)
 async def forgot_password(
-    req: ForgotPasswordRequest,
     request: Request,
+    req: ForgotPasswordRequest,
+    _rate_limit=Depends(password_limiter),
     session: AsyncSession = Depends(get_session),
 ):
     """Request password reset code."""
@@ -253,20 +254,16 @@ async def forgot_password(
         # For development, return code in response
         logger = __import__("logging").getLogger(__name__)
         logger.warning(f"Email service not configured. Verification code: {code}")
-        return JSONResponse(
-            status_code=200,
-            content={
-                "message": f"密码重置验证码已发送到您的邮箱（开发环境：{code}）",
-                "code": code,
-            },
-        )
+        return MessageResponse(message="密码重置验证码已发送到您的邮箱")
 
     return MessageResponse(message="密码重置验证码已发送到您的邮箱")
 
 
 @router.post("/verify/send", response_model=MessageResponse)
 async def send_verification_code(
+    request: Request,
     req: SendVerificationRequest,
+    _rate_limit=Depends(password_limiter),
     session: AsyncSession = Depends(get_session),
 ):
     """Send verification code for email verification."""
@@ -282,13 +279,7 @@ async def send_verification_code(
         # For development, return code in response
         logger = __import__("logging").getLogger(__name__)
         logger.warning(f"Email service not configured. Verification code: {code}")
-        return JSONResponse(
-            status_code=200,
-            content={
-                "message": f"验证码已发送到您的邮箱（开发环境：{code}）",
-                "code": code,
-            },
-        )
+        return MessageResponse(message="验证码已发送到您的邮箱")
 
     return MessageResponse(message="验证码已发送到您的邮箱")
 
