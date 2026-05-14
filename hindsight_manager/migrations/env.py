@@ -32,6 +32,7 @@ def do_run_migrations(connection):
         connection.execute(
             sa_text(f"CREATE SCHEMA IF NOT EXISTS {version_table_schema}")
         )
+        connection.commit()
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
