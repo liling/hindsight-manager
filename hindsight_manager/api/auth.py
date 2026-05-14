@@ -17,6 +17,7 @@ from hindsight_manager.auth.session import create_access_token, create_otp, crea
 from hindsight_manager.config import Settings
 from hindsight_manager.crypto import decrypt_sm4
 from hindsight_manager.db import get_session
+from hindsight_manager.middleware.rate_limit import login_limiter, otp_limiter
 from hindsight_manager.models.api_key import ApiKey
 from hindsight_manager.models.tenant import Tenant
 from hindsight_manager.models.tenant_member import TenantMember
@@ -64,7 +65,7 @@ def _set_session(response: Response | HTMLResponse | JSONResponse, token: str) -
 
 
 @router.post("/login")
-async def login(req: LoginRequest, session: AsyncSession = Depends(get_session)):
+async def login(request: Request, req: LoginRequest, _rate_limit=Depends(login_limiter), session: AsyncSession = Depends(get_session)):
     settings = Settings()
 
     if req.provider == "local":
@@ -108,6 +109,7 @@ async def login(req: LoginRequest, session: AsyncSession = Depends(get_session))
 async def login_form(
     request: Request,
     form: OAuth2PasswordRequestForm = Depends(),
+    _rate_limit=Depends(login_limiter),
     session: AsyncSession = Depends(get_session),
 ):
     settings = Settings()
@@ -268,7 +270,9 @@ async def otp_redirect_form(
 
 @router.post("/exchange-otp", response_model=ExchangeOtpResponse)
 async def exchange_otp_endpoint(
+    request: Request,
     req: ExchangeOtpRequest,
+    _rate_limit=Depends(otp_limiter),
     session: AsyncSession = Depends(get_session),
 ):
     claims = exchange_otp(req.otp)
