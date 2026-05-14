@@ -33,7 +33,7 @@ async def login_page(
     return templates.TemplateResponse(request, "login.html", {"error": error})
 
 
-@router.get("/dashboard", response_class=HTMLResponse)
+@router.api_route("/dashboard", methods=["GET", "POST"], response_class=HTMLResponse)
 async def dashboard_page(
     request: Request,
     current_user: User = Depends(get_current_user),
