@@ -1,7 +1,8 @@
+import html as html_lib
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -49,7 +50,8 @@ def _user_response(user: User) -> UserResponse:
     )
 
 
-def _set_session(response: Response | JSONResponse, token: str) -> None:
+def _set_session(response: Response | HTMLResponse | JSONResponse, token: str) -> None:
+    settings = Settings()
     response.set_cookie(
         SESSION_COOKIE,
         token,
@@ -57,7 +59,7 @@ def _set_session(response: Response | JSONResponse, token: str) -> None:
         max_age=86400,
         path="/",
         samesite="lax",
-        secure=False
+        secure=settings.session_secure,
     )
 
 
@@ -239,9 +241,29 @@ async def create_otp_endpoint(
     tenant = tenant_result.scalar_one_or_none()
     slug = tenant.schema_name if tenant else str(tenant_id)
 
-    redirect_url = f"{settings.cp_url_for_tenant(slug)}/?otp={otp}"
+    redirect_url = f"{settings.cp_url_for_tenant(slug)}/"
 
     return OtpResponse(otp=otp, expires_in=60, redirect_url=redirect_url)
+
+
+@router.get("/otp/redirect", response_class=HTMLResponse)
+async def otp_redirect_form(
+    otp: str,
+    cp_url: str,
+):
+    """Render an auto-submitting POST form to securely send OTP to control plane."""
+    escaped_otp = html_lib.escape(otp)
+    escaped_url = html_lib.escape(cp_url)
+    content = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Redirecting...</title></head>
+<body>
+<form id="f" method="POST" action="{escaped_url}">
+  <input type="hidden" name="otp" value="{escaped_otp}">
+</form>
+<p>Redirecting...</p>
+<script>document.getElementById('f').submit()</script>
+</body></html>"""
+    return HTMLResponse(content=content)
 
 
 @router.post("/exchange-otp", response_model=ExchangeOtpResponse)

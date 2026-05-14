@@ -29,7 +29,7 @@ async def client():
 
 @pytest.mark.asyncio
 @patch("hindsight_manager.api.auth.create_otp", return_value="test-otp-token")
-async def test_otp_returns_redirect_url(mock_create_otp, client: AsyncClient):
+async def test_otp_returns_clean_redirect_url(mock_create_otp, client: AsyncClient):
     mock_membership = MagicMock()
     mock_membership_result = MagicMock()
     mock_membership_result.scalar_one_or_none.return_value = mock_membership
@@ -54,5 +54,16 @@ async def test_otp_returns_redirect_url(mock_create_otp, client: AsyncClient):
     data = resp.json()
     assert "redirect_url" in data
     assert "tenant_abc12345" in data["redirect_url"]
-    assert "test-otp-token" in data["redirect_url"]
+    assert "test-otp-token" not in data["redirect_url"]
     assert data["redirect_url"].startswith("http://tenant_abc12345.cp.local.mem99.cn:9996")
+
+
+@pytest.mark.asyncio
+async def test_otp_redirect_form_returns_html(client: AsyncClient):
+    resp = await client.get(
+        "/auth/otp/redirect?otp=test-otp&cp_url=http://example.com/api/auth/sso",
+    )
+    assert resp.status_code == 200
+    assert 'method="POST"' in resp.text
+    assert 'action="http://example.com/api/auth/sso"' in resp.text
+    assert 'value="test-otp"' in resp.text

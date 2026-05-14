@@ -10,8 +10,10 @@ async function enterConsole(tenantId, tenantSlug) {
       alert("获取授权失败");
       return;
     }
-    const { redirect_url } = await resp.json();
-    window.open(redirect_url, "_blank");
+    const { otp, redirect_url } = await resp.json();
+    const cpSsoUrl = redirect_url + "api/auth/sso";
+    // Open POST-form redirect page — OTP goes via POST body, never in URL
+    window.open(`/auth/otp/redirect?otp=${encodeURIComponent(otp)}&cp_url=${encodeURIComponent(cpSsoUrl)}`, "_blank");
   } catch (e) {
     alert("网络错误");
   }
