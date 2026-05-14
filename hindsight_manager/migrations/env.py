@@ -12,17 +12,27 @@ config = context.config
 
 settings = Settings()
 target_metadata = Base.metadata
+version_table_schema = config.get_main_option("version_table_schema", "manager")
 
 
 def run_migrations_offline() -> None:
     url = settings.database_url.replace("+asyncpg", "+psycopg2")
-    context.configure(url=url, target_metadata=target_metadata, literal_binds=True)
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        version_table_schema=version_table_schema,
+    )
     with context.begin_transaction():
         context.run_migrations()
 
 
 def do_run_migrations(connection):
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        version_table_schema=version_table_schema,
+    )
     with context.begin_transaction():
         context.run_migrations()
 
