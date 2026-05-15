@@ -130,3 +130,68 @@ async def test_task_details_returns_paginated_items(admin_client):
     assert data["page"] == 1
     assert len(data["items"]) == 1
     assert data["items"][0]["operation_type"] == "consolidation"
+
+
+@pytest.fixture
+async def normal_client():
+    normal_user = MagicMock()
+    normal_user.id = uuid.uuid4()
+    normal_user.username = "normal"
+    normal_user.display_name = "Normal"
+    normal_user.role = UserRole.USER
+    normal_user.is_active = True
+    normal_user.email = "normal@test.com"
+    normal_user.auth_provider = MagicMock(value="local")
+
+    mock_session = AsyncMock()
+
+    async def _override_session():
+        yield mock_session
+
+    async def _override_current_user():
+        return normal_user
+
+    from hindsight_manager.auth.dependencies import get_current_user
+    app.dependency_overrides[get_session] = _override_session
+    app.dependency_overrides[get_current_user] = _override_current_user
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        yield c
+    app.dependency_overrides.clear()
+
+
+async def test_task_stats_requires_admin(normal_client):
+    resp = await normal_client.get("/admin/api/task-stats")
+    assert resp.status_code == 403
+
+
+async def test_task_details_requires_admin(normal_client):
+    resp = await normal_client.get("/admin/api/task-details")
+    assert resp.status_code == 403
+
+
+async def test_task_stats_empty_when_no_tenants(admin_client):
+    client, mock_session = admin_client
+    tenant_result = MagicMock()
+    tenant_result.scalars.return_value.all.return_value = []
+    mock_session.execute.return_value = tenant_result
+
+    resp = await client.get("/admin/api/task-stats")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["global"]["pending"] == 0
+    assert data["by_tenant"] == []
+
+
+async def test_task_details_empty_when_no_tenant_match(admin_client):
+    client, mock_session = admin_client
+    mock_session.get = AsyncMock(return_value=None)
+
+    resp = await client.get(
+        "/admin/api/task-details",
+        params={"tenant_id": str(uuid.uuid4())},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["items"] == []
+    assert data["total"] == 0
