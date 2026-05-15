@@ -79,3 +79,54 @@ async def test_task_stats_returns_global_and_per_tenant(admin_client):
     assert data["global"]["completed"] == 100
     assert len(data["by_tenant"]) == 1
     assert data["by_tenant"][0]["tenant_name"] == "测试租户"
+
+
+async def test_task_details_returns_paginated_items(admin_client):
+    client, mock_session = admin_client
+
+    # Mock: tenant lookup via session.get
+    tenant_row = MagicMock()
+    tenant_row.id = uuid.uuid4()
+    tenant_row.name = "测试租户"
+    tenant_row.schema_name = "tenant_test"
+
+    mock_session.get = AsyncMock(return_value=tenant_row)
+
+    # Mock: execute calls — SET search_path, count query, data query, RESET search_path
+    count_result = MagicMock()
+    count_result.scalar.return_value = 1
+
+    op_id = uuid.uuid4()
+    op_row = (
+        op_id,              # operation_id
+        "consolidation",    # operation_type
+        "processing",       # status
+        0,                  # retry_count
+        "worker-1",         # worker_id
+        "2026-05-15T10:00:00",  # created_at
+        "2026-05-15T10:01:00",  # updated_at
+        None,               # completed_at
+        None,               # error_message
+    )
+
+    data_result = MagicMock()
+    data_result.fetchall.return_value = [op_row]
+
+    mock_session.execute.side_effect = [
+        MagicMock(),  # SET search_path TO tenant_test, public
+        count_result,  # SELECT COUNT(*)
+        data_result,   # SELECT ... LIMIT OFFSET
+        MagicMock(),  # SET search_path TO public
+    ]
+
+    resp = await client.get(
+        "/admin/api/task-details",
+        params={"tenant_id": str(tenant_row.id), "page": 1, "page_size": 20},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "items" in data
+    assert data["total"] == 1
+    assert data["page"] == 1
+    assert len(data["items"]) == 1
+    assert data["items"][0]["operation_type"] == "consolidation"
