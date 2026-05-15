@@ -61,12 +61,17 @@ async def test_task_stats_returns_global_and_per_tenant(admin_client):
 
     tenant_result = MagicMock()
     tenant_result.scalars.return_value.all.return_value = [tenant_row]
-    # Session.execute calls: 1. tenant query, 2. SET search_path, 3. stats query, 4. RESET search_path
+    exists_result = MagicMock()
+    exists_result.scalar.return_value = True
+    stats_result = MagicMock()
+    stats_result.fetchall.return_value = [("pending", 5), ("processing", 2), ("completed", 100)]
+    # 1. tenant query, 2. SET search_path, 3. EXISTS check, 4. stats query, 5. SET search_path public
     mock_session.execute.side_effect = [
-        tenant_result,  # tenant query
-        MagicMock(),  # SET search_path TO tenant_test, public
-        MagicMock(fetchall=lambda: [("pending", 5), ("processing", 2), ("completed", 100)]),  # stats query
-        MagicMock(),  # SET search_path TO public
+        tenant_result,
+        MagicMock(),
+        exists_result,
+        stats_result,
+        MagicMock(),
     ]
 
     resp = await client.get("/admin/api/task-stats")
@@ -92,7 +97,9 @@ async def test_task_details_returns_paginated_items(admin_client):
 
     mock_session.get = AsyncMock(return_value=tenant_row)
 
-    # Mock: execute calls — SET search_path, count query, data query, RESET search_path
+    # Mock: execute calls — SET search_path, EXISTS check, count query, data query, RESET search_path
+    exists_result = MagicMock()
+    exists_result.scalar.return_value = True
     count_result = MagicMock()
     count_result.scalar.return_value = 1
 
@@ -114,6 +121,7 @@ async def test_task_details_returns_paginated_items(admin_client):
 
     mock_session.execute.side_effect = [
         MagicMock(),  # SET search_path TO tenant_test, public
+        exists_result,  # EXISTS check
         count_result,  # SELECT COUNT(*)
         data_result,   # SELECT ... LIMIT OFFSET
         MagicMock(),  # SET search_path TO public

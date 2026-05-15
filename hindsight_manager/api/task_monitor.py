@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 
 from fastapi import APIRouter, Depends, Query
@@ -9,6 +10,8 @@ from hindsight_manager.auth.dependencies import require_admin
 from hindsight_manager.db import get_session
 from hindsight_manager.models.tenant import Tenant, TenantStatus
 from hindsight_manager.models.user import User
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin/api", tags=["task-monitor"])
 
@@ -36,12 +39,44 @@ class TaskStatsResponse(BaseModel):
     model_config = {"populate_by_name": True, "by_alias": True}
 
 
+async def _check_table_exists(session: AsyncSession, schema_name: str) -> bool:
+    result = await session.execute(
+        text(
+            "SELECT EXISTS ("
+            "SELECT 1 FROM information_schema.tables "
+            "WHERE table_schema = :schema AND table_name = 'async_operations'"
+            ")"
+        ),
+        {"schema": schema_name},
+    )
+    return result.scalar()
+
+
+async def _query_tenant_stats(session: AsyncSession, schema_name: str) -> dict[str, int]:
+    """Query async_operations stats for a single tenant schema. Returns empty dict on failure."""
+    try:
+        await session.execute(text(f"SET search_path TO {schema_name}, public"))
+        if not await _check_table_exists(session, schema_name):
+            await session.rollback()
+            return {}
+
+        result = await session.execute(
+            text("SELECT status, COUNT(*) AS cnt FROM async_operations GROUP BY status")
+        )
+        counts = {row[0]: row[1] for row in result.fetchall()}
+        await session.execute(text("SET search_path TO public"))
+        return counts
+    except Exception:
+        logger.warning("Failed to query async_operations in schema %s", schema_name, exc_info=True)
+        await session.rollback()
+        return {}
+
+
 @router.get("/task-stats")
 async def get_task_stats(
     current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    # Fetch all active tenants
     result = await session.execute(
         select(Tenant).where(Tenant.status == TenantStatus.ACTIVE)
     )
@@ -51,16 +86,11 @@ async def get_task_stats(
     by_tenant: list[_TenantEntry] = []
 
     for tenant in tenants:
-        stats_sql = text("SELECT status, COUNT(*) AS cnt FROM async_operations GROUP BY status")
-        # Switch to tenant schema
-        await session.execute(text(f"SET search_path TO {tenant.schema_name}, public"))
-        stats_result = await session.execute(stats_sql)
-        # Reset search_path
-        await session.execute(text("SET search_path TO public"))
+        tid = str(tenant.id)
+        tname = tenant.name
+        tschema = tenant.schema_name
 
-        row_counts: dict[str, int] = {}
-        for row in stats_result.fetchall():
-            row_counts[row[0]] = row[1]
+        row_counts = await _query_tenant_stats(session, tschema)
 
         tenant_stats = _TenantStats(
             pending=row_counts.get("pending", 0),
@@ -72,8 +102,8 @@ async def get_task_stats(
 
         by_tenant.append(
             _TenantEntry(
-                tenant_id=str(tenant.id),
-                tenant_name=tenant.name,
+                tenant_id=tid,
+                tenant_name=tname,
                 stats=tenant_stats,
             )
         )
@@ -134,55 +164,62 @@ async def get_task_details(
     total_count = 0
 
     for tenant in tenants:
-        conditions = []
-        if status:
-            conditions.append(f"status = :status")
-        if operation_type:
-            conditions.append(f"operation_type = :op_type")
+        tid = str(tenant.id)
+        tname = tenant.name
+        tschema = tenant.schema_name
+        try:
+            await session.execute(text(f"SET search_path TO {tschema}, public"))
+            if not await _check_table_exists(session, tschema):
+                await session.rollback()
+                continue
 
-        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+            conditions = []
+            params: dict = {}
+            if status:
+                conditions.append("status = :status")
+                params["status"] = status
+            if operation_type:
+                conditions.append("operation_type = :op_type")
+                params["op_type"] = operation_type
 
-        params = {}
-        if status:
-            params["status"] = status
-        if operation_type:
-            params["op_type"] = operation_type
+            where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
-        await session.execute(text(f"SET search_path TO {tenant.schema_name}, public"))
-        count_result = await session.execute(
-            text(f"SELECT COUNT(*) FROM async_operations {where_clause}"),
-            params if params else None,
-        )
-        total_count += count_result.scalar()
-
-        query_params = {"limit": page_size, "offset": offset}
-        query_params.update(params)
-        data_result = await session.execute(
-            text(
-                f"SELECT operation_id, operation_type, status, retry_count, worker_id, "
-                f"created_at, updated_at, completed_at, error_message "
-                f"FROM async_operations {where_clause} "
-                f"ORDER BY created_at DESC LIMIT :limit OFFSET :offset"
-            ),
-            query_params,
-        )
-        await session.execute(text("SET search_path TO public"))
-
-        for row in data_result.fetchall():
-            all_items.append(
-                TaskDetailItem(
-                    operation_id=str(row[0]),
-                    tenant_id=str(tenant.id),
-                    tenant_name=tenant.name,
-                    operation_type=row[1],
-                    status=row[2],
-                    retry_count=row[3],
-                    worker_id=row[4],
-                    created_at=str(row[5]) if row[5] else None,
-                    updated_at=str(row[6]) if row[6] else None,
-                    completed_at=str(row[7]) if row[7] else None,
-                    error_message=row[8],
-                )
+            count_result = await session.execute(
+                text(f"SELECT COUNT(*) FROM async_operations {where_clause}"),
+                params if params else None,
             )
+            total_count += count_result.scalar()
+
+            query_params = {"limit": page_size, "offset": offset, **params}
+            data_result = await session.execute(
+                text(
+                    f"SELECT operation_id, operation_type, status, retry_count, worker_id, "
+                    f"created_at, updated_at, completed_at, error_message "
+                    f"FROM async_operations {where_clause} "
+                    f"ORDER BY created_at DESC LIMIT :limit OFFSET :offset"
+                ),
+                query_params,
+            )
+            await session.execute(text("SET search_path TO public"))
+
+            for row in data_result.fetchall():
+                all_items.append(
+                    TaskDetailItem(
+                        operation_id=str(row[0]),
+                        tenant_id=tid,
+                        tenant_name=tname,
+                        operation_type=row[1],
+                        status=row[2],
+                        retry_count=row[3],
+                        worker_id=row[4],
+                        created_at=str(row[5]) if row[5] else None,
+                        updated_at=str(row[6]) if row[6] else None,
+                        completed_at=str(row[7]) if row[7] else None,
+                        error_message=row[8],
+                    )
+                )
+        except Exception:
+            logger.warning("Failed to query details for tenant %s", tenant.name, exc_info=True)
+            await session.rollback()
 
     return TaskDetailsResponse(items=all_items, total=total_count, page=page, page_size=page_size)
