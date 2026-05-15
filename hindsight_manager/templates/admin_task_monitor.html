@@ -1,0 +1,152 @@
+{% extends "admin_base.html" %}
+{% block title %}任务监控 - Hindsight{% endblock %}
+{% set nav_active = 'task_monitor' %}
+{% block main %}
+<div class="content-header">
+    <h2>任务监控</h2>
+    <div class="content-header-actions">
+        <button class="btn btn-secondary btn-sm" onclick="loadTaskStats();loadTaskDetails()">刷新</button>
+    </div>
+</div>
+
+<div class="task-stats-cards">
+    <div class="task-stat-card card-pending">
+        <div class="task-stat-number" id="stat-pending">-</div>
+        <div class="task-stat-label">待处理</div>
+    </div>
+    <div class="task-stat-card card-processing">
+        <div class="task-stat-number" id="stat-processing">-</div>
+        <div class="task-stat-label">处理中</div>
+    </div>
+    <div class="task-stat-card card-completed">
+        <div class="task-stat-number" id="stat-completed">-</div>
+        <div class="task-stat-label">已完成</div>
+    </div>
+    <div class="task-stat-card card-failed">
+        <div class="task-stat-number" id="stat-failed">-</div>
+        <div class="task-stat-label">失败</div>
+    </div>
+    <div class="task-stat-card card-cancelled">
+        <div class="task-stat-number" id="stat-cancelled">-</div>
+        <div class="task-stat-label">已取消</div>
+    </div>
+</div>
+
+<div class="task-section">
+    <div class="task-section-header">
+        <h3>按租户统计</h3>
+    </div>
+    <table class="data-table" id="task-tenant-table">
+        <thead>
+            <tr>
+                <th>租户名称</th>
+                <th>待处理</th>
+                <th>处理中</th>
+                <th>已完成</th>
+                <th>失败</th>
+                <th>已取消</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<div class="task-section">
+    <div class="task-section-header">
+        <h3>任务详情</h3>
+        <div class="task-filters">
+            <select id="filter-tenant"><option value="">全部租户</option></select>
+            <select id="filter-status">
+                <option value="">全部状态</option>
+                <option value="pending">待处理</option>
+                <option value="processing">处理中</option>
+                <option value="completed">已完成</option>
+                <option value="failed">失败</option>
+                <option value="cancelled">已取消</option>
+            </select>
+            <select id="filter-type">
+                <option value="">全部类型</option>
+                <option value="retain">retain</option>
+                <option value="consolidation">consolidation</option>
+                <option value="refresh_mental_model">refresh_mental_model</option>
+                <option value="file_convert_retain">file_convert_retain</option>
+                <option value="webhook_delivery">webhook_delivery</option>
+                <option value="batch_retain">batch_retain</option>
+            </select>
+        </div>
+    </div>
+    <table class="data-table" id="task-detail-table">
+        <thead>
+            <tr>
+                <th>操作 ID</th>
+                <th>类型</th>
+                <th>状态</th>
+                <th>重试</th>
+                <th>Worker</th>
+                <th>创建时间</th>
+                <th>更新时间</th>
+                <th>错误信息</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <div class="task-pagination" id="task-pagination"></div>
+</div>
+
+<style>
+.task-stats-cards {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+    margin: 16px 0;
+}
+.task-stat-card {
+    background: var(--bg-card);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    border: 1px solid var(--border);
+}
+.task-stat-number {
+    font-size: 28px;
+    font-weight: 700;
+}
+.task-stat-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+.card-pending .task-stat-number { color: #d97706; }
+.card-processing .task-stat-number { color: var(--primary); }
+.card-completed .task-stat-number { color: var(--success-text); }
+.card-failed .task-stat-number { color: var(--danger-text); }
+.card-cancelled .task-stat-number { color: var(--text-secondary); }
+.task-section { margin-top: 24px; }
+.task-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.task-filters {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.task-filters select {
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-card);
+    font-size: 13px;
+}
+.task-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+}
+</style>
+<script src="/static/task_monitor.js"></script>
+{% endblock %}
