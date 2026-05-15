@@ -171,3 +171,11 @@ async def admin_audit_logs_page(
     current_user: User = Depends(require_admin),
 ):
     return templates.TemplateResponse(request, "admin_audit_logs.html", {"user": current_user, "nav_active": "audit_logs"})
+
+
+@router.get("/admin/task-monitor", response_class=HTMLResponse)
+async def admin_task_monitor_page(
+    request: Request,
+    current_user: User = Depends(require_admin),
+):
+    return templates.TemplateResponse(request, "admin_task_monitor.html", {"user": current_user, "nav_active": "task_monitor"})
