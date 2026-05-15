@@ -20,6 +20,7 @@ from hindsight_manager.api.pages import router as pages_router
 from hindsight_manager.api.password import router as password_router
 from hindsight_manager.api.proxy import router as proxy_router
 from hindsight_manager.api.tenants import router as tenants_router
+from hindsight_manager.api.task_monitor import router as task_monitor_router
 from hindsight_manager.auth.password import hash_password
 from hindsight_manager.config import Settings
 from hindsight_manager.db import init_db
@@ -92,6 +93,7 @@ app.include_router(tenants_router)
 app.include_router(members_router)
 app.include_router(api_keys_router)
 app.include_router(proxy_router)
+app.include_router(task_monitor_router)
 app.include_router(captcha_router)
 app.mount("/static", StaticFiles(directory="hindsight_manager/static"), name="static")
 
