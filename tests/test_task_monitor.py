@@ -72,10 +72,10 @@ async def test_task_stats_returns_global_and_per_tenant(admin_client):
     resp = await client.get("/admin/api/task-stats")
     assert resp.status_code == 200
     data = resp.json()
-    assert "global_" in data
+    assert "global" in data
     assert "by_tenant" in data
-    assert data["global_"]["pending"] == 5
-    assert data["global_"]["processing"] == 2
-    assert data["global_"]["completed"] == 100
+    assert data["global"]["pending"] == 5
+    assert data["global"]["processing"] == 2
+    assert data["global"]["completed"] == 100
     assert len(data["by_tenant"]) == 1
     assert data["by_tenant"][0]["tenant_name"] == "测试租户"

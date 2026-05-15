@@ -1,7 +1,7 @@
 from collections import defaultdict
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,8 +30,10 @@ class _TenantEntry(BaseModel):
 
 
 class TaskStatsResponse(BaseModel):
-    global_: _TenantStats = _TenantStats()
+    global_: _TenantStats = Field(alias="global", default=_TenantStats())
     by_tenant: list[_TenantEntry] = []
+
+    model_config = {"populate_by_name": True, "by_alias": True}
 
 
 @router.get("/task-stats")
