@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     cp_base_domain: str = "cp.local.mem99.cn"
     cp_port: str = "9996"
     cp_scheme: str = "http"
+    docs_url: str = "https://hindsight.vectorize.io/best-practices"
 
     # Email service configuration
     email_service: str = "smtp"  # smtp or sendgrid

@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hindsight_manager.auth.dependencies import get_current_user, get_current_user_or_none, require_admin
+from hindsight_manager.config import Settings
 from hindsight_manager.db import get_session
 from hindsight_manager.models.api_key import ApiKey
 from hindsight_manager.models.tenant import Tenant
@@ -55,7 +56,7 @@ async def dashboard_page(
     ]
     return templates.TemplateResponse(
         request, "dashboard.html",
-        {"user": current_user, "tenants": tenants},
+        {"user": current_user, "tenants": tenants, "dataplane_url": Settings().dataplane_url, "docs_url": Settings().docs_url, "mcp_url": Settings().dataplane_url.rstrip("/") + "/mcp"},
     )
 
 
