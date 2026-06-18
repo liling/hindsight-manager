@@ -13,10 +13,12 @@
         <code class="usage-guide-value">{{ dataplane_url }}</code>
         <button type="button" class="copy-btn" onclick="copyKey('{{ dataplane_url }}')" title="复制"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
     </div>
+    {% if mcp_url %}
     <div class="usage-guide-item">
         <span class="usage-guide-label">MCP</span>
         <button type="button" class="btn btn-secondary btn-sm" onclick="showMcpConfigModal()">获取 MCP 配置</button>
     </div>
+    {% endif %}
     {% if docs_url %}
     <div class="usage-guide-item">
         <span class="usage-guide-label">官方文档</span>
@@ -104,6 +106,7 @@
     </div>
 </div>
 
+{% if mcp_url %}
 <div id="mcp-config-modal" class="modal hidden">
     <div class="modal-backdrop" onclick="hideMcpConfigModal()"></div>
     <div class="modal-content">
@@ -128,7 +131,8 @@
         </div>
     </div>
 </div>
+{% endif %}
 
-<script>window.MCP_URL = "{{ mcp_url }}";</script>
+<script>window.MCP_URL = {{ mcp_url | tojson }};</script>
 <script src="/static/app.js"></script>
 {% endblock %}
