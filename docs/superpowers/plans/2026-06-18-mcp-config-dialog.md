@@ -119,7 +119,6 @@ Expected: FAIL — `AssertionError: assert '获取 MCP 配置' in '<html>...'`�
     <div class="modal-content">
         <h3>MCP 配置</h3>
         <div class="usage-guide-item" style="margin-bottom:12px">
-            <span class="usage-guide-label">MCP 地址</span>
             <code class="usage-guide-value">{{ mcp_url }}</code>
             <button type="button" class="copy-btn" onclick="copyKey('{{ mcp_url }}')" title="复制"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
         </div>

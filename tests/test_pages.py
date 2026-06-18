@@ -64,3 +64,11 @@ async def test_dashboard_page_renders(client: AsyncClient):
     resp = await client.get("/dashboard")
     assert resp.status_code == 200
     assert "记忆库" in resp.text
+    # MCP config dialog: new button replaces the old static MCP URL row
+    assert "获取 MCP 配置" in resp.text
+    assert 'id="mcp-config-modal"' in resp.text
+    assert 'id="mcp-config-code"' in resp.text
+    assert 'id="mcp-config-location"' in resp.text
+    assert "window.MCP_URL" in resp.text
+    # Old static MCP URL display row should be gone
+    assert ">MCP 地址<" not in resp.text

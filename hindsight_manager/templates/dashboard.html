@@ -13,13 +13,10 @@
         <code class="usage-guide-value">{{ dataplane_url }}</code>
         <button type="button" class="copy-btn" onclick="copyKey('{{ dataplane_url }}')" title="复制"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
     </div>
-    {% if mcp_url %}
     <div class="usage-guide-item">
-        <span class="usage-guide-label">MCP 地址</span>
-        <code class="usage-guide-value">{{ mcp_url }}</code>
-        <button type="button" class="copy-btn" onclick="copyKey('{{ mcp_url }}')" title="复制"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+        <span class="usage-guide-label">MCP</span>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="showMcpConfigModal()">获取 MCP 配置</button>
     </div>
-    {% endif %}
     {% if docs_url %}
     <div class="usage-guide-item">
         <span class="usage-guide-label">官方文档</span>
@@ -106,5 +103,32 @@
         </div>
     </div>
 </div>
+
+<div id="mcp-config-modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="hideMcpConfigModal()"></div>
+    <div class="modal-content">
+        <h3>MCP 配置</h3>
+        <div class="usage-guide-item" style="margin-bottom:12px">
+            <code class="usage-guide-value">{{ mcp_url }}</code>
+            <button type="button" class="copy-btn" onclick="copyKey('{{ mcp_url }}')" title="复制"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+        </div>
+        <div class="mcp-tabs" style="display:flex;gap:4px;margin-bottom:12px;border-bottom:1px solid var(--border);">
+            <button type="button" class="btn btn-secondary btn-sm mcp-tab" data-framework="claude" onclick="switchMcpTab('claude')">Claude Code</button>
+            <button type="button" class="btn btn-secondary btn-sm mcp-tab" data-framework="opencode" onclick="switchMcpTab('opencode')">OpenCode</button>
+            <button type="button" class="btn btn-secondary btn-sm mcp-tab" data-framework="trae" onclick="switchMcpTab('trae')">Trae Solo</button>
+        </div>
+        <div style="position:relative">
+            <pre style="background:var(--bg-secondary);padding:12px;border-radius:6px;overflow-x:auto;max-height:320px;margin:0"><code id="mcp-config-code"></code></pre>
+            <button type="button" class="copy-btn" onclick="copyKey(document.getElementById('mcp-config-code').textContent)" title="复制" style="position:absolute;top:8px;right:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+        </div>
+        <p id="mcp-config-location" style="font-size:12px;color:var(--text-secondary);margin-top:8px"></p>
+        <p style="font-size:12px;color:var(--text-secondary);margin-top:4px">将 <code>&lt;YOUR_API_KEY&gt;</code> 替换为你的 API Key，可在 <a href="/api-keys">API Keys</a> 页面创建。</p>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-primary" onclick="hideMcpConfigModal()">关闭</button>
+        </div>
+    </div>
+</div>
+
+<script>window.MCP_URL = "{{ mcp_url }}";</script>
 <script src="/static/app.js"></script>
 {% endblock %}
