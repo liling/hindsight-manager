@@ -230,3 +230,74 @@ function copyKey(text) {
     setTimeout(() => toast.remove(), 2000);
   });
 }
+
+const MCP_TEMPLATES = {
+  claude: {
+    json: `{
+  "mcpServers": {
+    "hindsight": {
+      "type": "http",
+      "url": "<MCP_URL>",
+      "headers": {
+        "Authorization": "Bearer <YOUR_API_KEY>"
+      }
+    }
+  }
+}`,
+    location: "写入位置：~/.claude.json 或项目 .mcp.json",
+  },
+  opencode: {
+    json: `{
+  "mcp": {
+    "hindsight": {
+      "type": "remote",
+      "url": "<MCP_URL>",
+      "headers": {
+        "Authorization": "Bearer <YOUR_API_KEY>"
+      }
+    }
+  }
+}`,
+    location: "写入位置：opencode.json",
+  },
+  trae: {
+    json: `{
+  "mcpServers": {
+    "hindsight": {
+      "type": "http",
+      "url": "<MCP_URL>",
+      "headers": {
+        "Authorization": "Bearer <YOUR_API_KEY>"
+      }
+    }
+  }
+}`,
+    location: "写入位置：Trae IDE → 设置 → MCP → 导入",
+  },
+};
+
+function showMcpConfigModal() {
+  switchMcpTab("claude");
+  document.getElementById("mcp-config-modal").classList.remove("hidden");
+}
+
+function hideMcpConfigModal() {
+  document.getElementById("mcp-config-modal").classList.add("hidden");
+}
+
+function switchMcpTab(framework) {
+  document.querySelectorAll(".mcp-tab").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.framework === framework);
+  });
+  const code = document.getElementById("mcp-config-code");
+  const loc = document.getElementById("mcp-config-location");
+  if (!code || !loc) return;
+  code.textContent = getMcpConfigJson(framework);
+  loc.textContent = MCP_TEMPLATES[framework]?.location || "";
+}
+
+function getMcpConfigJson(framework) {
+  const tpl = MCP_TEMPLATES[framework];
+  if (!tpl) return "";
+  return tpl.json.replaceAll("<MCP_URL>", window.MCP_URL || "");
+}
