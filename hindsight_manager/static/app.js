@@ -384,11 +384,11 @@ function renderMembersPanel(panel, tenantId, members, role, currentUserId) {
           <option value="owner" ${m.role === 'owner' ? 'selected' : ''}>owner</option>
         </select>
         ${selfLastOwner ? '<span class="member-hint">至少保留一位 owner</span>' : ''}
-        ${!isSelf ? `<button class="btn btn-danger btn-sm" onclick="removeMember('${tenantId}','${m.user_id}',${JSON.stringify(m.username)})">移除</button>` : ''}
+        ${!isSelf ? `<button class="btn btn-danger btn-sm" onclick="removeMember('${tenantId}','${m.user_id}')">移除</button>` : ''}
       </div>`;
     }
 
-    return `<div class="member-row" id="member-${m.user_id}">
+    return `<div class="member-row" id="member-${m.user_id}" data-username="${escapeHtml(m.username)}">
       <div class="member-info">
         <span>${escapeHtml(m.username)}${isSelf ? '（你）' : ''}</span>
         ${badge}
@@ -488,7 +488,9 @@ async function changeMemberRole(tenantId, userId, newRole) {
   }
 }
 
-async function removeMember(tenantId, userId, username) {
+async function removeMember(tenantId, userId) {
+  const row = document.getElementById(`member-${userId}`);
+  const username = row ? row.dataset.username : userId;
   if (!confirm(`确定移除用户 ${username} 吗？`)) return;
 
   try {
