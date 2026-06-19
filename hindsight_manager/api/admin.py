@@ -1,8 +1,9 @@
+import re
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hindsight_manager.auth.audit import log_audit
@@ -304,8 +305,16 @@ async def list_tenants_admin(
     current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    query = select(Tenant).order_by(Tenant.created_at.desc())
-    count_query = select(func.count()).select_from(Tenant)
+    query = (
+        select(Tenant)
+        .where(Tenant.status != TenantStatus.DELETED)
+        .order_by(Tenant.created_at.desc())
+    )
+    count_query = (
+        select(func.count())
+        .select_from(Tenant)
+        .where(Tenant.status != TenantStatus.DELETED)
+    )
 
     if search:
         pattern = _like_pattern(search)
@@ -378,6 +387,70 @@ async def delete_tenant_admin(
     return {"ok": True}
 
 
+TENANT_SCHEMA_PATTERN = re.compile(r"^tenant_[a-f0-9]{8}$")
+
+
+@router.post("/tenants/{tenant_id}/purge")
+async def purge_tenant_admin(
+    tenant_id: uuid.UUID,
+    request: Request,
+    current_user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    # SELECT FOR UPDATE 序列化并发 purge
+    result = await session.execute(
+        select(Tenant).where(Tenant.id == tenant_id).with_for_update()
+    )
+    tenant = result.scalar_one_or_none()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="租户不存在")
+
+    if tenant.status != TenantStatus.DELETING:
+        raise HTTPException(
+            status_code=409,
+            detail=f"租户状态为 {tenant.status.value}，需先软删除后再清空",
+        )
+
+    # 防 SQL 注入：schema 名无法参数化，必须白名单校验
+    if not TENANT_SCHEMA_PATTERN.match(tenant.schema_name):
+        raise HTTPException(
+            status_code=500,
+            detail="租户 schema 名称异常，拒绝清空",
+        )
+
+    # 检查 schema 是否存在（可能从未被懒创建）
+    exists_result = await session.execute(
+        text(
+            "SELECT 1 FROM information_schema.schemata WHERE schema_name = :name"
+        ),
+        {"name": tenant.schema_name},
+    )
+    schema_existed = exists_result.fetchone() is not None
+
+    if schema_existed:
+        await session.execute(
+            text(f'DROP SCHEMA "{tenant.schema_name}" CASCADE')
+        )
+
+    tenant.status = TenantStatus.DELETED
+
+    await log_audit(
+        session,
+        user_id=current_user.id,
+        action="tenant.purge",
+        resource_type="tenant",
+        resource_id=str(tenant_id),
+        detail={
+            "name": tenant.name,
+            "schema_name": tenant.schema_name,
+            "schema_dropped": schema_existed,
+        },
+        ip_address=_get_client_ip(request),
+    )
+    await session.commit()
+    return {"ok": True, "schema_dropped": schema_existed}
+
+
 # ─── API Key 管理端点 ───
 
 @router.get("/api-keys")
@@ -391,12 +464,14 @@ async def list_api_keys_admin(
     query = (
         select(ApiKey, Tenant)
         .join(Tenant, ApiKey.tenant_id == Tenant.id)
+        .where(Tenant.status == TenantStatus.ACTIVE)
         .order_by(ApiKey.created_at.desc())
     )
     count_query = (
         select(func.count())
         .select_from(ApiKey)
         .join(Tenant, ApiKey.tenant_id == Tenant.id)
+        .where(Tenant.status == TenantStatus.ACTIVE)
     )
 
     if tenant_id:

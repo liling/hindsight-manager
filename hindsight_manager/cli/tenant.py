@@ -79,6 +79,28 @@ def delete_tenant(tenant_id: str):
     typer.echo("Tenant marked for deletion.")
 
 
+@app.command(name="purge")
+def purge_tenant(tenant_id: str):
+    """彻底清空已软删除的租户（DROP SCHEMA，不可逆）。"""
+    base_url = _get_base_url()
+    headers = _get_auth_headers()
+    resp = httpx.post(f"{base_url}/admin/api/tenants/{tenant_id}/purge", headers=headers)
+    if resp.status_code == 409:
+        detail = resp.json().get("detail", "")
+        typer.echo(
+            f"无法清空：{detail}。请先运行 'hindsight-manager tenant delete {tenant_id}'。",
+            err=True,
+        )
+        raise typer.Exit(1)
+    if resp.status_code == 404:
+        typer.echo("租户不存在。", err=True)
+        raise typer.Exit(1)
+    resp.raise_for_status()
+    data = resp.json()
+    dropped = data.get("schema_dropped")
+    typer.echo(f"已清空租户 {tenant_id}（schema_dropped={dropped}）。")
+
+
 @app.command()
 def config_set(
     tenant_id: str,
