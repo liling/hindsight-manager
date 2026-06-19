@@ -38,7 +38,7 @@
     <div id="audit-pagination" class="pagination"></div>
 </div>
 
-<script src="/static/admin.js"></script>
+<script src="{{ '/static/admin.js' | asset_url }}"></script>
 <script>
 document.addEventListener("DOMContentLoaded", () => loadAuditLogs());
 </script>

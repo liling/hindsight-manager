@@ -1,19 +1,19 @@
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hindsight_manager.auth.dependencies import get_current_user, get_current_user_or_none, require_admin
 from hindsight_manager.config import Settings
 from hindsight_manager.db import get_session
+from hindsight_manager.jinja_filters import make_templates
 from hindsight_manager.models.api_key import ApiKey
 from hindsight_manager.models.tenant import Tenant
 from hindsight_manager.models.tenant_member import TenantMember
 from hindsight_manager.models.user import User
 
 router = APIRouter(tags=["pages"])
-templates = Jinja2Templates(directory="hindsight_manager/templates")
+templates = make_templates()
 
 
 @router.get("/", response_class=HTMLResponse)

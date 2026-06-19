@@ -131,5 +131,5 @@
 {% endif %}
 
 <script>window.MCP_URL = {{ mcp_url | tojson }};</script>
-<script src="/static/app.js"></script>
+<script src="{{ '/static/app.js' | asset_url }}"></script>
 {% endblock %}
