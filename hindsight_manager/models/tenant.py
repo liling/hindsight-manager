@@ -10,6 +10,7 @@ from hindsight_manager.models.base import Base
 class TenantStatus(str, enum.Enum):
     ACTIVE = "active"
     DELETING = "deleting"
+    DELETED = "deleted"
 
 
 class Tenant(Base):
