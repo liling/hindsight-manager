@@ -126,6 +126,12 @@ async def test_purge_deleting_tenant_success(client):
     assert tenant.status == TenantStatus.DELETED  # 端点里设置过
     mock_session.commit.assert_awaited_once()
 
+    # Verify the DROP SCHEMA SQL is correct (not just that execute was called)
+    drop_sql = str(mock_session.execute.call_args_list[2].args[0])
+    assert "DROP SCHEMA" in drop_sql.upper()
+    assert "tenant_abc12345" in drop_sql
+    assert "CASCADE" in drop_sql.upper()
+
 
 # ---------- 成功路径（schema 不存在） ----------
 
@@ -192,6 +198,30 @@ async def test_purge_writes_audit_log(client):
     assert entry.detail["schema_dropped"] is False
 
 
+# ---------- SELECT FOR UPDATE 并发保护 ----------
+
+@pytest.mark.asyncio
+async def test_purge_uses_select_for_update(client):
+    """Purge must lock the tenant row with SELECT FOR UPDATE to serialize concurrent calls."""
+    tenant = _make_tenant(TenantStatus.DELETING)
+    mock_session = AsyncMock()
+    mock_session.execute = AsyncMock(side_effect=[
+        _make_result(scalar=tenant),
+        _make_result(fetchone=None),  # schema not exists → no DROP
+    ])
+    mock_session.add = MagicMock()
+    mock_session.commit = AsyncMock()
+    _override_session_and_user(mock_session)
+
+    await client.post(f"/admin/api/tenants/{TENANT_ID}/purge")
+
+    first_call = mock_session.execute.call_args_list[0]
+    # SQLAlchemy renders with_for_update as "FOR UPDATE" in the SQL
+    select_sql = str(first_call.args[0])
+    assert "FOR UPDATE" in select_sql.upper(), \
+        "purge must use SELECT ... FOR UPDATE to serialize concurrent calls"
+
+
 # ---------- 列表过滤 DELETED ----------
 
 @pytest.mark.asyncio
@@ -223,5 +253,8 @@ async def test_admin_tenant_list_excludes_deleted(client):
     # count_query 和主 query 都不应该返回 deleted 行
     list_sqls = [q for q in captured_queries if "FROM manager.tenants" in q]
     # 检查查询中是否有 status != 条件（参数化查询）
-    assert any("status != " in q or "status <> " in q for q in list_sqls), \
-        "tenant list query must filter out DELETED status"
+    # 验证 WHERE 子句包含 status 过滤（参数化形式渲染为 "status != :status_1"），
+    # 同时检查 "deleted" 是否出现在 SQL 字符串中。
+    status_filter_present = any("status != " in q or "status <> " in q for q in list_sqls)
+    assert status_filter_present, \
+        "tenant list query must filter out DELETED status via WHERE status != <deleted>"

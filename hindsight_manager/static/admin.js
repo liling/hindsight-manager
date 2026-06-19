@@ -1,5 +1,9 @@
 // ─── 通用工具 ───
 
+function escapeAttr(s) {
+  return escapeHtml(s).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+}
+
 function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str;
@@ -216,8 +220,8 @@ async function loadTenants(page = 1) {
         <td>${t.api_key_count}</td>
         <td>${formatDate(t.created_at)}</td>
         <td class="action-cell">
-          ${t.status === 'active' ? `<button class="btn btn-danger btn-sm" onclick="deleteTenantAdmin('${t.id}','${escapeHtml(t.name)}')">删除</button>` : ''}
-          ${t.status === 'deleting' ? `<button class="btn btn-danger btn-sm" onclick="purgeTenantAdmin('${t.id}','${escapeHtml(t.name)}','${escapeHtml(t.schema_name)}')">清空</button>` : ''}
+          ${t.status === 'active' ? `<button class="btn btn-danger btn-sm" onclick="deleteTenantAdmin('${t.id}','${escapeAttr(t.name)}')">删除</button>` : ''}
+          ${t.status === 'deleting' ? `<button class="btn btn-danger btn-sm" onclick="purgeTenantAdmin('${t.id}','${escapeAttr(t.name)}','${escapeAttr(t.schema_name)}')">清空</button>` : ''}
         </td>
       </tr>
     `).join("");

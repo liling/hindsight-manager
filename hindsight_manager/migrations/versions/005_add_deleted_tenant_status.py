@@ -16,9 +16,12 @@ SCHEMA = "manager"
 
 
 def upgrade() -> None:
-    # PG 12+ allows ALTER TYPE ... ADD VALUE IF NOT EXISTS inside a
-    # transaction block (which Alembic wraps). If this fails on older PG,
-    # switch to: op.execute("COMMIT"); op.execute("ALTER TYPE ...")
+    # PG 12+ allows ALTER TYPE ... ADD VALUE inside a transaction block, but
+    # the new value cannot be USED (e.g. in INSERT/UPDATE) within the same
+    # transaction — only after commit. This migration only adds the value;
+    # no statement in this migration references 'deleted', so the default
+    # Alembic transaction wrapping is safe. On PG <= 11 this would fail and
+    # require op.execute("COMMIT") before the ALTER.
     op.execute(
         f"ALTER TYPE {SCHEMA}.tenant_status ADD VALUE IF NOT EXISTS 'deleted'"
     )
