@@ -406,3 +406,38 @@ function renderMembersPanel(panel, tenantId, members, role, currentUserId) {
 
   panel.innerHTML = html;
 }
+
+async function addMember(event, tenantId, role, currentUserId) {
+  event.preventDefault();
+  const form = event.target;
+  const username = form.username.value.trim();
+  const newRole = form.role.value;
+  const errEl = document.getElementById(`member-add-error-${tenantId}`);
+  errEl.style.display = 'none';
+  errEl.textContent = '';
+
+  if (!username) return;
+
+  try {
+    const resp = await fetch(`/tenants/${tenantId}/members`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ username, role: newRole }),
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      const msg = data.detail || '添加失败';
+      errEl.textContent = msg === 'User not found' ? '找不到该用户'
+        : msg === 'User is already a member' ? '该用户已是成员'
+        : msg === 'Owner access required' ? '无权限'
+        : msg;
+      errEl.style.display = 'block';
+      return;
+    }
+    form.username.value = '';
+    await loadMembers(tenantId, role, currentUserId);
+  } catch (e) {
+    alert('网络错误');
+  }
+}
