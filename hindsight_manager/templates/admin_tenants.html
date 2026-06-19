@@ -29,6 +29,21 @@
     <div id="tenants-pagination" class="pagination"></div>
 </div>
 
+<!-- 清空租户确认弹窗 -->
+<div id="purge-modal" class="modal hidden">
+    <div class="modal-backdrop" id="purge-modal-backdrop"></div>
+    <div class="modal-content">
+        <h3>彻底清空租户</h3>
+        <p>此操作不可撤销，将永久删除 schema <code id="purge-confirm-schema"></code> 下的所有业务数据。元数据会保留以便审计。</p>
+        <p>请输入租户名 <strong id="purge-confirm-name"></strong> 以确认：</p>
+        <input type="text" id="purge-confirm-input" class="search-input" style="width:100%;margin:8px 0;" autocomplete="off">
+        <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="purge-cancel-btn" onclick="hidePurgeModal()">取消</button>
+            <button type="button" class="btn btn-danger" id="purge-confirm" disabled>确认清空</button>
+        </div>
+    </div>
+</div>
+
 <script src="/static/admin.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", () => loadTenants());

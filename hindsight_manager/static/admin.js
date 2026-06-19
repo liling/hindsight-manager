@@ -211,12 +211,13 @@ async function loadTenants(page = 1) {
         <td>${escapeHtml(t.name)}</td>
         <td><code>${escapeHtml(t.schema_name)}</code></td>
         <td>${escapeHtml(t.owner || "-")}</td>
-        <td><span class="badge ${t.status === 'active' ? 'badge-success' : 'badge-danger'}">${t.status}</span></td>
+        <td><span class="badge ${t.status === 'active' ? 'badge-success' : 'badge-danger'}">${t.status === 'deleting' ? '待清空' : t.status}</span></td>
         <td>${t.member_count}</td>
         <td>${t.api_key_count}</td>
         <td>${formatDate(t.created_at)}</td>
         <td class="action-cell">
-          <button class="btn btn-danger btn-sm" onclick="deleteTenantAdmin('${t.id}','${escapeHtml(t.name)}')">删除</button>
+          ${t.status === 'active' ? `<button class="btn btn-danger btn-sm" onclick="deleteTenantAdmin('${t.id}','${escapeHtml(t.name)}')">删除</button>` : ''}
+          ${t.status === 'deleting' ? `<button class="btn btn-danger btn-sm" onclick="purgeTenantAdmin('${t.id}','${escapeHtml(t.name)}','${escapeHtml(t.schema_name)}')">清空</button>` : ''}
         </td>
       </tr>
     `).join("");
@@ -238,6 +239,64 @@ async function deleteTenantAdmin(id, name) {
     loadTenants(_tenantPage);
   } else {
     alert("删除失败");
+  }
+}
+
+function hidePurgeModal() {
+  document.getElementById("purge-modal").classList.add("hidden");
+}
+
+function showPurgeConfirmDialog(name, schemaName) {
+  return new Promise(resolve => {
+    const modal = document.getElementById("purge-modal");
+    const nameEl = document.getElementById("purge-confirm-name");
+    const schemaEl = document.getElementById("purge-confirm-schema");
+    const input = document.getElementById("purge-confirm-input");
+    const confirmBtn = document.getElementById("purge-confirm");
+    const cancelBtn = document.getElementById("purge-cancel-btn");
+    const backdrop = document.getElementById("purge-modal-backdrop");
+
+    nameEl.textContent = name;
+    schemaEl.textContent = schemaName;
+    input.value = "";
+    confirmBtn.disabled = true;
+    modal.classList.remove("hidden");
+
+    function cleanup() {
+      modal.removeEventListener("keydown", onKeydown);
+      confirmBtn.removeEventListener("click", onConfirm);
+      cancelBtn.removeEventListener("click", onCancel);
+      backdrop.removeEventListener("click", onCancel);
+    }
+    function onKeydown(e) {
+      if (e.key === "Escape") { cleanup(); hidePurgeModal(); resolve(false); }
+    }
+    function onConfirm() { cleanup(); hidePurgeModal(); resolve(true); }
+    function onCancel() { cleanup(); hidePurgeModal(); resolve(false); }
+
+    input.oninput = () => { confirmBtn.disabled = input.value.trim() !== name; };
+    modal.addEventListener("keydown", onKeydown);
+    confirmBtn.addEventListener("click", onConfirm);
+    cancelBtn.addEventListener("click", onCancel);
+    backdrop.addEventListener("click", onCancel);
+    input.focus();
+  });
+}
+
+async function purgeTenantAdmin(id, name, schemaName) {
+  const confirmed = await showPurgeConfirmDialog(name, schemaName);
+  if (!confirmed) return;
+
+  const resp = await apiFetch(`/admin/api/tenants/${id}/purge`, { method: "POST" });
+  if (!resp) return;
+  if (resp.ok) {
+    loadTenants(_tenantPage);
+  } else if (resp.status === 409) {
+    const err = await resp.json();
+    alert(err.detail || "清空失败：租户数据尚未完全迁移，请稍后重试");
+  } else {
+    const err = await resp.json();
+    alert(err.detail || "清空失败");
   }
 }
 
