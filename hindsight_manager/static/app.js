@@ -1,4 +1,4 @@
-let _activeApiKeysTenantId = null;
+let _activePanel = null; // { tenantId: string, type: 'api-keys' | 'members' }
 
 async function enterConsole(tenantId, tenantSlug) {
   try {
@@ -66,26 +66,31 @@ function hideCreateModal() {
   document.getElementById("create-modal").classList.add("hidden");
 }
 
+function _closePanel() {
+  if (!_activePanel) return;
+  const prevPanel = document.getElementById(
+    _activePanel.type === 'api-keys'
+      ? `api-keys-panel-${_activePanel.tenantId}`
+      : `members-panel-${_activePanel.tenantId}`
+  );
+  const prevCard = document.getElementById(`tenant-card-${_activePanel.tenantId}`);
+  if (prevPanel) prevPanel.style.display = 'none';
+  if (prevCard) prevCard.classList.remove('has-panel');
+  _activePanel = null;
+}
+
 function toggleApiKeys(tenantId) {
   const panel = document.getElementById(`api-keys-panel-${tenantId}`);
   const card = document.getElementById(`tenant-card-${tenantId}`);
   if (!panel) return;
 
-  if (_activeApiKeysTenantId === tenantId) {
-    panel.style.display = 'none';
-    card.classList.remove('has-panel');
-    _activeApiKeysTenantId = null;
+  if (_activePanel && _activePanel.tenantId === tenantId && _activePanel.type === 'api-keys') {
+    _closePanel();
     return;
   }
 
-  if (_activeApiKeysTenantId) {
-    const prevPanel = document.getElementById(`api-keys-panel-${_activeApiKeysTenantId}`);
-    const prevCard = document.getElementById(`tenant-card-${_activeApiKeysTenantId}`);
-    if (prevPanel) prevPanel.style.display = 'none';
-    if (prevCard) prevCard.classList.remove('has-panel');
-  }
-
-  _activeApiKeysTenantId = tenantId;
+  _closePanel();
+  _activePanel = { tenantId, type: 'api-keys' };
   card.classList.add('has-panel');
   panel.style.display = 'block';
   loadApiKeys(tenantId);
@@ -163,8 +168,8 @@ function showApiKeyModal(tenantId) {
 
 function hideApiKeyModal() {
   document.getElementById('apikey-modal').classList.add('hidden');
-  if (_activeApiKeysTenantId) {
-    loadApiKeys(_activeApiKeysTenantId);
+  if (_activePanel && _activePanel.type === 'api-keys') {
+    loadApiKeys(_activePanel.tenantId);
   }
 }
 
@@ -299,4 +304,105 @@ function getMcpConfigJson(framework) {
   const tpl = MCP_TEMPLATES[framework];
   if (!tpl) return "";
   return tpl.json.replaceAll("<MCP_URL>", window.MCP_URL || "");
+}
+
+// ============ 成员管理面板 ============
+
+function toggleMembers(tenantId, role, currentUserId) {
+  const panel = document.getElementById(`members-panel-${tenantId}`);
+  const card = document.getElementById(`tenant-card-${tenantId}`);
+  if (!panel) return;
+
+  if (_activePanel && _activePanel.tenantId === tenantId && _activePanel.type === 'members') {
+    _closePanel();
+    return;
+  }
+
+  _closePanel();
+  _activePanel = { tenantId, type: 'members' };
+  card.classList.add('has-panel');
+  panel.style.display = 'block';
+  loadMembers(tenantId, role, currentUserId);
+}
+
+async function loadMembers(tenantId, role, currentUserId) {
+  const panel = document.getElementById(`members-panel-${tenantId}`);
+  panel.innerHTML = '<div class="member-empty">加载中...</div>';
+
+  try {
+    const resp = await fetch(`/tenants/${tenantId}/members`, { credentials: 'include' });
+    if (!resp.ok) {
+      panel.innerHTML = '<div class="member-empty">加载失败，<a href="#" class="member-retry">重试</a></div>';
+      panel.querySelector('.member-retry').addEventListener('click', (e) => {
+        e.preventDefault();
+        loadMembers(tenantId, role, currentUserId);
+      });
+      return;
+    }
+    const members = await resp.json();
+    renderMembersPanel(panel, tenantId, members, role, currentUserId);
+  } catch (e) {
+    panel.innerHTML = '<div class="member-empty">网络错误</div>';
+  }
+}
+
+function renderMembersPanel(panel, tenantId, members, role, currentUserId) {
+  // 缓存上下文到 dataset，供 changeMemberRole / removeMember 在事件回调里取回
+  panel.dataset.currentRole = role;
+  panel.dataset.currentUserId = currentUserId;
+  panel.dataset.tenantId = tenantId;
+
+  const isOwner = role === 'owner';
+  const ownerCount = members.filter(m => m.role === 'owner').length;
+
+  let html = '<div class="members-panel-header"><h4>成员</h4></div>';
+
+  if (members.length === 0) {
+    html += '<div class="member-empty">暂无成员</div>';
+    panel.innerHTML = html;
+    return;
+  }
+
+  html += members.map(m => {
+    const isSelf = m.user_id === currentUserId;
+    const selfLastOwner = isSelf && m.role === 'owner' && ownerCount <= 1;
+    const badge = m.role === 'owner'
+      ? '<span class="role-badge role-owner">owner</span>'
+      : '<span class="role-badge">member</span>';
+
+    let actions = '';
+    if (isOwner) {
+      // 最后一个 owner 的下拉整体 disabled，防止降级导致无人管理
+      const selectDisabled = selfLastOwner ? 'disabled' : '';
+      actions = `<div class="member-actions">
+        <select onchange="changeMemberRole('${tenantId}','${m.user_id}',this.value)" ${selectDisabled}>
+          <option value="member" ${m.role === 'member' ? 'selected' : ''}>member</option>
+          <option value="owner" ${m.role === 'owner' ? 'selected' : ''}>owner</option>
+        </select>
+        ${!isSelf ? `<button class="btn btn-danger btn-sm" onclick="removeMember('${tenantId}','${m.user_id}','${escapeHtml(m.username)}')">移除</button>` : ''}
+      </div>`;
+    }
+
+    return `<div class="member-row" id="member-${m.user_id}">
+      <div class="member-info">
+        <span>${escapeHtml(m.username)}${isSelf ? '（你）' : ''}</span>
+        ${badge}
+      </div>
+      ${actions}
+    </div>`;
+  }).join('');
+
+  if (isOwner) {
+    html += `<form class="member-add-form" onsubmit="addMember(event,'${tenantId}','${role}','${currentUserId}')">
+      <input type="text" name="username" placeholder="用户名" required>
+      <select name="role">
+        <option value="member" selected>member</option>
+        <option value="owner">owner</option>
+      </select>
+      <button type="submit" class="btn btn-primary btn-sm">添加</button>
+      <div class="member-error" id="member-add-error-${tenantId}" style="display:none"></div>
+    </form>`;
+  }
+
+  panel.innerHTML = html;
 }
