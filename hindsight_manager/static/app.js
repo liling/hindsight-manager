@@ -329,20 +329,24 @@ async function loadMembers(tenantId, role, currentUserId) {
   const panel = document.getElementById(`members-panel-${tenantId}`);
   panel.innerHTML = '<div class="member-empty">加载中...</div>';
 
+  const showError = (msg) => {
+    panel.innerHTML = `<div class="member-empty">${msg}，<a href="#" class="member-retry">重试</a></div>`;
+    panel.querySelector('.member-retry').addEventListener('click', (e) => {
+      e.preventDefault();
+      loadMembers(tenantId, role, currentUserId);
+    });
+  };
+
   try {
     const resp = await fetch(`/tenants/${tenantId}/members`, { credentials: 'include' });
     if (!resp.ok) {
-      panel.innerHTML = '<div class="member-empty">加载失败，<a href="#" class="member-retry">重试</a></div>';
-      panel.querySelector('.member-retry').addEventListener('click', (e) => {
-        e.preventDefault();
-        loadMembers(tenantId, role, currentUserId);
-      });
+      showError('加载失败');
       return;
     }
     const members = await resp.json();
     renderMembersPanel(panel, tenantId, members, role, currentUserId);
   } catch (e) {
-    panel.innerHTML = '<div class="member-empty">网络错误</div>';
+    showError('网络错误');
   }
 }
 
@@ -379,7 +383,8 @@ function renderMembersPanel(panel, tenantId, members, role, currentUserId) {
           <option value="member" ${m.role === 'member' ? 'selected' : ''}>member</option>
           <option value="owner" ${m.role === 'owner' ? 'selected' : ''}>owner</option>
         </select>
-        ${!isSelf ? `<button class="btn btn-danger btn-sm" onclick="removeMember('${tenantId}','${m.user_id}','${escapeHtml(m.username)}')">移除</button>` : ''}
+        ${selfLastOwner ? '<span class="member-hint">至少保留一位 owner</span>' : ''}
+        ${!isSelf ? `<button class="btn btn-danger btn-sm" onclick="removeMember('${tenantId}','${m.user_id}',${JSON.stringify(m.username)})">移除</button>` : ''}
       </div>`;
     }
 
