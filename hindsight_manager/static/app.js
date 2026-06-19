@@ -286,9 +286,8 @@ function hideMcpConfigModal() {
 }
 
 function switchMcpTab(framework) {
-  document.querySelectorAll(".mcp-tab").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.framework === framework);
-  });
+  const select = document.getElementById("mcp-framework-select");
+  if (select && select.value !== framework) select.value = framework;
   const code = document.getElementById("mcp-config-code");
   const loc = document.getElementById("mcp-config-location");
   if (!code || !loc) return;
