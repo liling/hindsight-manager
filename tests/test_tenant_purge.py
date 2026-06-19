@@ -191,3 +191,38 @@ async def test_purge_writes_audit_log(client):
     assert entry.resource_id == TENANT_ID
     assert entry.detail["schema_name"] == "tenant_abc12345"
     assert entry.detail["schema_dropped"] is False
+
+
+# ---------- 列表过滤 DELETED ----------
+
+@pytest.mark.asyncio
+async def test_admin_tenant_list_excludes_deleted(client):
+    """list_tenants_admin should filter out DELETED tenants."""
+    # 验证 SQL 语句包含 status != 'deleted' 过滤
+    # 我们 mock 返回空列表，重点验证 query 拼接
+    captured_queries = []
+
+    async def capture_execute(query, *args, **kwargs):
+        captured_queries.append(str(query))
+        r = MagicMock()
+        # 不同调用返回不同结构
+        if "count" in str(query).lower():
+            r.scalar.return_value = 0
+        else:
+            mock_scalars = MagicMock()
+            mock_scalars.all.return_value = []
+            r.scalars.return_value = mock_scalars
+        return r
+
+    mock_session = AsyncMock()
+    mock_session.execute = AsyncMock(side_effect=capture_execute)
+    _override_session_and_user(mock_session)
+
+    resp = await client.get("/admin/api/tenants")
+    assert resp.status_code == 200
+
+    # count_query 和主 query 都不应该返回 deleted 行
+    list_sqls = [q for q in captured_queries if "FROM manager.tenants" in q]
+    # 检查查询中是否有 status != 条件（参数化查询）
+    assert any("status != " in q or "status <> " in q for q in list_sqls), \
+        "tenant list query must filter out DELETED status"

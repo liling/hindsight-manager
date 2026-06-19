@@ -305,8 +305,16 @@ async def list_tenants_admin(
     current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    query = select(Tenant).order_by(Tenant.created_at.desc())
-    count_query = select(func.count()).select_from(Tenant)
+    query = (
+        select(Tenant)
+        .where(Tenant.status != TenantStatus.DELETED)
+        .order_by(Tenant.created_at.desc())
+    )
+    count_query = (
+        select(func.count())
+        .select_from(Tenant)
+        .where(Tenant.status != TenantStatus.DELETED)
+    )
 
     if search:
         pattern = _like_pattern(search)
