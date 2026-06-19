@@ -1,4 +1,4 @@
-let _activeApiKeysTenantId = null;
+let _activePanel = null; // { tenantId: string, type: 'api-keys' | 'members' }
 
 async function enterConsole(tenantId, tenantSlug) {
   try {
@@ -66,26 +66,31 @@ function hideCreateModal() {
   document.getElementById("create-modal").classList.add("hidden");
 }
 
+function _closePanel() {
+  if (!_activePanel) return;
+  const prevPanel = document.getElementById(
+    _activePanel.type === 'api-keys'
+      ? `api-keys-panel-${_activePanel.tenantId}`
+      : `members-panel-${_activePanel.tenantId}`
+  );
+  const prevCard = document.getElementById(`tenant-card-${_activePanel.tenantId}`);
+  if (prevPanel) prevPanel.style.display = 'none';
+  if (prevCard) prevCard.classList.remove('has-panel');
+  _activePanel = null;
+}
+
 function toggleApiKeys(tenantId) {
   const panel = document.getElementById(`api-keys-panel-${tenantId}`);
   const card = document.getElementById(`tenant-card-${tenantId}`);
   if (!panel) return;
 
-  if (_activeApiKeysTenantId === tenantId) {
-    panel.style.display = 'none';
-    card.classList.remove('has-panel');
-    _activeApiKeysTenantId = null;
+  if (_activePanel && _activePanel.tenantId === tenantId && _activePanel.type === 'api-keys') {
+    _closePanel();
     return;
   }
 
-  if (_activeApiKeysTenantId) {
-    const prevPanel = document.getElementById(`api-keys-panel-${_activeApiKeysTenantId}`);
-    const prevCard = document.getElementById(`tenant-card-${_activeApiKeysTenantId}`);
-    if (prevPanel) prevPanel.style.display = 'none';
-    if (prevCard) prevCard.classList.remove('has-panel');
-  }
-
-  _activeApiKeysTenantId = tenantId;
+  _closePanel();
+  _activePanel = { tenantId, type: 'api-keys' };
   card.classList.add('has-panel');
   panel.style.display = 'block';
   loadApiKeys(tenantId);
@@ -163,8 +168,8 @@ function showApiKeyModal(tenantId) {
 
 function hideApiKeyModal() {
   document.getElementById('apikey-modal').classList.add('hidden');
-  if (_activeApiKeysTenantId) {
-    loadApiKeys(_activeApiKeysTenantId);
+  if (_activePanel && _activePanel.type === 'api-keys') {
+    loadApiKeys(_activePanel.tenantId);
   }
 }
 
@@ -299,4 +304,211 @@ function getMcpConfigJson(framework) {
   const tpl = MCP_TEMPLATES[framework];
   if (!tpl) return "";
   return tpl.json.replaceAll("<MCP_URL>", window.MCP_URL || "");
+}
+
+// ============ 成员管理面板 ============
+
+function toggleMembers(tenantId, role, currentUserId) {
+  const panel = document.getElementById(`members-panel-${tenantId}`);
+  const card = document.getElementById(`tenant-card-${tenantId}`);
+  if (!panel) return;
+
+  if (_activePanel && _activePanel.tenantId === tenantId && _activePanel.type === 'members') {
+    _closePanel();
+    return;
+  }
+
+  _closePanel();
+  _activePanel = { tenantId, type: 'members' };
+  card.classList.add('has-panel');
+  panel.style.display = 'block';
+  loadMembers(tenantId, role, currentUserId);
+}
+
+async function loadMembers(tenantId, role, currentUserId) {
+  const panel = document.getElementById(`members-panel-${tenantId}`);
+  panel.innerHTML = '<div class="member-empty">加载中...</div>';
+
+  const showError = (msg) => {
+    panel.innerHTML = `<div class="member-empty">${msg}，<a href="#" class="member-retry">重试</a></div>`;
+    panel.querySelector('.member-retry').addEventListener('click', (e) => {
+      e.preventDefault();
+      loadMembers(tenantId, role, currentUserId);
+    });
+  };
+
+  try {
+    const resp = await fetch(`/tenants/${tenantId}/members`, { credentials: 'include' });
+    if (!resp.ok) {
+      showError('加载失败');
+      return;
+    }
+    const members = await resp.json();
+    renderMembersPanel(panel, tenantId, members, role, currentUserId);
+  } catch (e) {
+    showError('网络错误');
+  }
+}
+
+function renderMembersPanel(panel, tenantId, members, role, currentUserId) {
+  // 缓存上下文到 dataset，供 changeMemberRole / removeMember 在事件回调里取回
+  panel.dataset.currentRole = role;
+  panel.dataset.currentUserId = currentUserId;
+  panel.dataset.tenantId = tenantId;
+
+  const isOwner = role === 'owner';
+  const ownerCount = members.filter(m => m.role === 'owner').length;
+
+  let html = '<div class="members-panel-header"><h4>成员</h4></div>';
+
+  if (members.length === 0) {
+    html += '<div class="member-empty">暂无成员</div>';
+    panel.innerHTML = html;
+    return;
+  }
+
+  html += members.map(m => {
+    const isSelf = m.user_id === currentUserId;
+    const selfLastOwner = isSelf && m.role === 'owner' && ownerCount <= 1;
+    const badge = m.role === 'owner'
+      ? '<span class="role-badge role-owner">owner</span>'
+      : '<span class="role-badge">member</span>';
+
+    let actions = '';
+    if (isOwner) {
+      // 最后一个 owner 的下拉整体 disabled，防止降级导致无人管理
+      const selectDisabled = selfLastOwner ? 'disabled' : '';
+      actions = `<div class="member-actions">
+        <select onchange="changeMemberRole('${tenantId}','${m.user_id}',this.value)" ${selectDisabled}>
+          <option value="member" ${m.role === 'member' ? 'selected' : ''}>member</option>
+          <option value="owner" ${m.role === 'owner' ? 'selected' : ''}>owner</option>
+        </select>
+        ${selfLastOwner ? '<span class="member-hint">至少保留一位 owner</span>' : ''}
+        ${!isSelf ? `<button class="btn btn-danger btn-sm" onclick="removeMember('${tenantId}','${m.user_id}')">移除</button>` : ''}
+      </div>`;
+    }
+
+    return `<div class="member-row" id="member-${m.user_id}" data-username="${escapeHtml(m.username)}">
+      <div class="member-info">
+        <span>${escapeHtml(m.username)}${isSelf ? '（你）' : ''}</span>
+        ${badge}
+      </div>
+      ${actions}
+    </div>`;
+  }).join('');
+
+  if (isOwner) {
+    html += `<form class="member-add-form" onsubmit="addMember(event,'${tenantId}','${role}','${currentUserId}')">
+      <input type="text" name="username" placeholder="用户名" required>
+      <select name="role">
+        <option value="member" selected>member</option>
+        <option value="owner">owner</option>
+      </select>
+      <button type="submit" class="btn btn-primary btn-sm">添加</button>
+      <div class="member-error" id="member-add-error-${tenantId}" style="display:none"></div>
+    </form>`;
+  }
+
+  panel.innerHTML = html;
+}
+
+async function addMember(event, tenantId, role, currentUserId) {
+  event.preventDefault();
+  const form = event.target;
+  const username = form.username.value.trim();
+  const newRole = form.role.value;
+  const errEl = document.getElementById(`member-add-error-${tenantId}`);
+  errEl.style.display = 'none';
+  errEl.textContent = '';
+
+  if (!username) return;
+
+  try {
+    const resp = await fetch(`/tenants/${tenantId}/members`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ username, role: newRole }),
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      const msg = data.detail || '添加失败';
+      errEl.textContent = msg === 'User not found' ? '找不到该用户'
+        : msg === 'User is already a member' ? '该用户已是成员'
+        : msg === 'Owner access required' ? '无权限'
+        : msg;
+      errEl.style.display = 'block';
+      return;
+    }
+    form.username.value = '';
+    await loadMembers(tenantId, role, currentUserId);
+  } catch (e) {
+    alert('网络错误');
+  }
+}
+
+async function changeMemberRole(tenantId, userId, newRole) {
+  const panel = document.getElementById(`members-panel-${tenantId}`);
+  if (!panel) return;
+  const currentUserId = panel.dataset.currentUserId;
+  const role = panel.dataset.currentRole;
+  const isSelfDowngrade = userId === currentUserId && newRole === 'member';
+
+  if (isSelfDowngrade) {
+    if (!confirm('你将失去管理权限，确定？')) {
+      // 用户取消：重渲染面板让下拉还原到真实角色
+      await loadMembers(tenantId, role, currentUserId);
+      return;
+    }
+  }
+
+  try {
+    const resp = await fetch(`/tenants/${tenantId}/members/${userId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ role: newRole }),
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      const msg = data.detail || '修改失败';
+      alert(msg === 'Owner access required' ? '无权限' : msg);
+      // 失败时下拉视觉会停在错误选项上，重渲染面板还原
+      await loadMembers(tenantId, role, currentUserId);
+      return;
+    }
+    if (isSelfDowngrade) {
+      // 自降级后当前面板 role 已过期，按 spec 整页 reload
+      window.location.reload();
+      return;
+    }
+    await loadMembers(tenantId, role, currentUserId);
+  } catch (e) {
+    alert('网络错误');
+  }
+}
+
+async function removeMember(tenantId, userId) {
+  const row = document.getElementById(`member-${userId}`);
+  const username = row ? row.dataset.username : userId;
+  if (!confirm(`确定移除用户 ${username} 吗？`)) return;
+
+  try {
+    const resp = await fetch(`/tenants/${tenantId}/members/${userId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      const msg = data.detail || '移除失败';
+      alert(msg === 'Owner access required' ? '无权限' : msg);
+      return;
+    }
+    const panel = document.getElementById(`members-panel-${tenantId}`);
+    const role = panel.dataset.currentRole;
+    const currentUserId = panel.dataset.currentUserId;
+    await loadMembers(tenantId, role, currentUserId);
+  } catch (e) {
+    alert('网络错误');
+  }
 }
