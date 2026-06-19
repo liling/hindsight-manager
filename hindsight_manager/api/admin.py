@@ -464,12 +464,14 @@ async def list_api_keys_admin(
     query = (
         select(ApiKey, Tenant)
         .join(Tenant, ApiKey.tenant_id == Tenant.id)
+        .where(Tenant.status == TenantStatus.ACTIVE)
         .order_by(ApiKey.created_at.desc())
     )
     count_query = (
         select(func.count())
         .select_from(ApiKey)
         .join(Tenant, ApiKey.tenant_id == Tenant.id)
+        .where(Tenant.status == TenantStatus.ACTIVE)
     )
 
     if tenant_id:

@@ -258,3 +258,37 @@ async def test_admin_tenant_list_excludes_deleted(client):
     status_filter_present = any("status != " in q or "status <> " in q for q in list_sqls)
     assert status_filter_present, \
         "tenant list query must filter out DELETED status via WHERE status != <deleted>"
+
+
+# ---------- API key 列表过滤 DELETED 租户 ----------
+
+@pytest.mark.asyncio
+async def test_admin_api_key_list_excludes_deleted_tenant(client):
+    """list_api_keys_admin should hide API keys belonging to DELETED tenants."""
+    captured_queries = []
+
+    async def capture_execute(query, *args, **kwargs):
+        captured_queries.append(str(query))
+        r = MagicMock()
+        if "count" in str(query).lower():
+            r.scalar.return_value = 0
+        else:
+            mock_all = MagicMock()
+            mock_all.all.return_value = []
+            r.all.return_value = mock_all
+        return r
+
+    mock_session = AsyncMock()
+    mock_session.execute = AsyncMock(side_effect=capture_execute)
+    _override_session_and_user(mock_session)
+
+    resp = await client.get("/admin/api/api-keys")
+    assert resp.status_code == 200
+
+    # api_keys JOIN tenants 的查询应该只显示 ACTIVE 租户的 key
+    # SQLAlchemy 渲染为 "status = :status_1"（注意 "status = " 不是 "status != " 的子串）
+    join_sqls = [q for q in captured_queries if "api_keys" in q and "tenants" in q]
+    assert join_sqls, "expected joined api_keys/tenants queries"
+    status_filter_present = any("status = " in q for q in join_sqls)
+    assert status_filter_present, \
+        "api key list query must filter to ACTIVE tenants only via WHERE status = <active>"
