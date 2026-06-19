@@ -39,6 +39,7 @@
             </div>
             <div class="tenant-actions">
                 <button class="btn btn-primary btn-sm" onclick="enterConsole('{{ t.id }}', '{{ t.schema_name }}')">进入控制台</button>
+                <button class="btn btn-secondary btn-sm" onclick="toggleMembers('{{ t.id }}', '{{ t.role }}', '{{ user.id }}')">成员</button>
                 {% if t.role == 'owner' %}
                 <button class="btn btn-secondary btn-sm" onclick="toggleApiKeys('{{ t.id }}')">API Keys</button>
                 <button class="btn btn-danger btn-sm" onclick="deleteTenant('{{ t.id }}', '{{ t.name }}')">删除</button>
@@ -46,6 +47,7 @@
             </div>
         </div>
         <div id="api-keys-panel-{{ t.id }}" class="api-keys-panel" style="display:none"></div>
+        <div id="members-panel-{{ t.id }}" class="members-panel" style="display:none"></div>
     </div>
     {% endfor %}
 </div>
