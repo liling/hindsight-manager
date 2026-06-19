@@ -482,3 +482,26 @@ async function changeMemberRole(tenantId, userId, newRole) {
     alert('网络错误');
   }
 }
+
+async function removeMember(tenantId, userId, username) {
+  if (!confirm(`确定移除用户 ${username} 吗？`)) return;
+
+  try {
+    const resp = await fetch(`/tenants/${tenantId}/members/${userId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      const msg = data.detail || '移除失败';
+      alert(msg === 'Owner access required' ? '无权限' : msg);
+      return;
+    }
+    const panel = document.getElementById(`members-panel-${tenantId}`);
+    const role = panel.dataset.currentRole;
+    const currentUserId = panel.dataset.currentUserId;
+    await loadMembers(tenantId, role, currentUserId);
+  } catch (e) {
+    alert('网络错误');
+  }
+}
