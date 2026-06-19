@@ -441,3 +441,44 @@ async function addMember(event, tenantId, role, currentUserId) {
     alert('网络错误');
   }
 }
+
+async function changeMemberRole(tenantId, userId, newRole) {
+  const panel = document.getElementById(`members-panel-${tenantId}`);
+  if (!panel) return;
+  const currentUserId = panel.dataset.currentUserId;
+  const role = panel.dataset.currentRole;
+  const isSelfDowngrade = userId === currentUserId && newRole === 'member';
+
+  if (isSelfDowngrade) {
+    if (!confirm('你将失去管理权限，确定？')) {
+      // 用户取消：重渲染面板让下拉还原到真实角色
+      await loadMembers(tenantId, role, currentUserId);
+      return;
+    }
+  }
+
+  try {
+    const resp = await fetch(`/tenants/${tenantId}/members/${userId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ role: newRole }),
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      const msg = data.detail || '修改失败';
+      alert(msg === 'Owner access required' ? '无权限' : msg);
+      // 失败时下拉视觉会停在错误选项上，重渲染面板还原
+      await loadMembers(tenantId, role, currentUserId);
+      return;
+    }
+    if (isSelfDowngrade) {
+      // 自降级后当前面板 role 已过期，按 spec 整页 reload
+      window.location.reload();
+      return;
+    }
+    await loadMembers(tenantId, role, currentUserId);
+  } catch (e) {
+    alert('网络错误');
+  }
+}
