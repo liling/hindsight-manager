@@ -211,7 +211,7 @@ async function loadTenants(page = 1) {
         <td>${escapeHtml(t.name)}</td>
         <td><code>${escapeHtml(t.schema_name)}</code></td>
         <td>${escapeHtml(t.owner || "-")}</td>
-        <td><span class="badge ${t.status === 'active' ? 'badge-success' : 'badge-danger'}">${t.status === 'deleting' ? '待清空' : t.status}</span></td>
+        <td><span class="badge ${t.status === 'active' ? 'badge-success' : 'badge-danger'}">${t.status === 'deleting' ? '待清空' : escapeHtml(t.status)}</span></td>
         <td>${t.member_count}</td>
         <td>${t.api_key_count}</td>
         <td>${formatDate(t.created_at)}</td>

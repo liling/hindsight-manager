@@ -1,5 +1,4 @@
 """Tests for POST /admin/api/tenants/{id}/purge endpoint."""
-import re
 import uuid
 from unittest.mock import AsyncMock, MagicMock
 
