@@ -67,11 +67,12 @@ async function loadUsers(page = 1) {
 
   const tbody = document.getElementById("users-tbody");
   if (data.items.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">暂无数据</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">暂无数据</td></tr>';
   } else {
     tbody.innerHTML = data.items.map(u => `
       <tr>
         <td>${escapeHtml(u.username)}</td>
+        <td>${escapeHtml(u.display_name || "-")}</td>
         <td>${escapeHtml(u.email || "-")}</td>
         <td><span class="badge ${u.role === 'admin' ? 'badge-system' : 'badge-default'}">${u.role === 'admin' ? '管理员' : '用户'}</span></td>
         <td><span class="badge ${u.is_active ? 'badge-success' : 'badge-danger'}">${u.is_active ? '启用' : '禁用'}</span></td>
