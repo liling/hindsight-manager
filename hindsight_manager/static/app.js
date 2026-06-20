@@ -66,6 +66,41 @@ function hideCreateModal() {
   document.getElementById("create-modal").classList.add("hidden");
 }
 
+function showRenameModal(tenantId, currentName) {
+  document.getElementById("rename-tenant-id").value = tenantId;
+  const input = document.getElementById("rename-name");
+  input.value = currentName;
+  document.getElementById("rename-modal").classList.remove("hidden");
+  input.focus();
+  input.select();
+}
+
+function hideRenameModal() {
+  document.getElementById("rename-modal").classList.add("hidden");
+}
+
+async function renameTenant(e) {
+  e.preventDefault();
+  const tenantId = document.getElementById("rename-tenant-id").value;
+  const name = document.getElementById("rename-name").value;
+  try {
+    const resp = await fetch(`/tenants/${tenantId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ name }),
+    });
+    if (resp.ok) {
+      window.location.reload();
+    } else {
+      const err = await resp.json();
+      alert(err.detail || "重命名失败");
+    }
+  } catch (e) {
+    alert("网络错误");
+  }
+}
+
 function _closePanel() {
   if (!_activePanel) return;
   const prevPanel = document.getElementById(

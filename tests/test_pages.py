@@ -72,3 +72,8 @@ async def test_dashboard_page_renders(client: AsyncClient):
     assert "window.MCP_URL" in resp.text
     # Old static MCP URL display row should be gone
     assert ">MCP 地址<" not in resp.text
+    # Rename modal
+    assert "重命名" in resp.text
+    assert 'id="rename-modal"' in resp.text
+    assert 'id="rename-name"' in resp.text
+    assert 'id="rename-tenant-id"' in resp.text

@@ -42,6 +42,7 @@
                 <button class="btn btn-secondary btn-sm" onclick="toggleMembers('{{ t.id }}', '{{ t.role }}', '{{ user.id }}')">成员</button>
                 {% if t.role == 'owner' %}
                 <button class="btn btn-secondary btn-sm" onclick="toggleApiKeys('{{ t.id }}')">API Keys</button>
+                <button class="btn btn-secondary btn-sm" onclick="showRenameModal('{{ t.id }}', '{{ t.name | e }}')">重命名</button>
                 <button class="btn btn-danger btn-sm" onclick="deleteTenant('{{ t.id }}', '{{ t.name }}')">删除</button>
                 {% endif %}
             </div>
@@ -65,6 +66,24 @@
             <div class="modal-actions">
                 <button type="button" class="btn btn-secondary" onclick="hideCreateModal()">取消</button>
                 <button type="submit" class="btn btn-primary">创建</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="rename-modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="hideRenameModal()"></div>
+    <div class="modal-content">
+        <h3>重命名记忆库</h3>
+        <form id="rename-form" onsubmit="renameTenant(event)">
+            <div class="form-group">
+                <label for="rename-name">名称</label>
+                <input type="text" id="rename-name" name="name" required placeholder="输入新名称">
+                <input type="hidden" id="rename-tenant-id">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="hideRenameModal()">取消</button>
+                <button type="submit" class="btn btn-primary">保存</button>
             </div>
         </form>
     </div>
