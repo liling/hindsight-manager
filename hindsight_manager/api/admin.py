@@ -69,6 +69,7 @@ class AdminTenantResponse(BaseModel):
     member_count: int
     api_key_count: int
     owner: str | None
+    owner_display_name: str | None
 
 
 class AdminApiKeyResponse(BaseModel):
@@ -349,18 +350,20 @@ async def list_tenants_admin(
         api_key_count = kc_result.scalar() or 0
 
         owner_result = await session.execute(
-            select(User.username)
+            select(User.username, User.display_name)
             .join(TenantMember, TenantMember.user_id == User.id)
             .where(TenantMember.tenant_id == t.id, TenantMember.role == MemberRole.OWNER)
             .limit(1)
         )
-        owner = owner_result.scalar_one_or_none()
+        owner_row = owner_result.first()
+        owner = owner_row.username if owner_row else None
+        owner_display_name = owner_row.display_name if owner_row else None
 
         items.append(AdminTenantResponse(
             id=str(t.id), name=t.name, schema_name=t.schema_name,
             status=t.status.value, config=t.config, created_at=str(t.created_at),
             member_count=member_count, api_key_count=api_key_count,
-            owner=owner,
+            owner=owner, owner_display_name=owner_display_name,
         ))
 
     return PaginatedResponse(items=items, total=total, page=page, page_size=page_size)
