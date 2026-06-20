@@ -83,7 +83,7 @@ async def test_dashboard_page_renders(client: AsyncClient):
 async def test_dashboard_owner_card_renders_rename_icon(client: AsyncClient):
     tenant = MagicMock()
     tenant.id = "t-1"
-    tenant.name = "My Lab"
+    tenant.name = "Alice's Lab"
     tenant.schema_name = "tenant_x"
     role = MagicMock()
     role.value = "owner"
@@ -104,6 +104,11 @@ async def test_dashboard_owner_card_renders_rename_icon(client: AsyncClient):
     # Owner sees the rename icon button next to the name
     assert 'class="tenant-edit-btn"' in resp.text
     assert 'aria-label="重命名"' in resp.text
+    # Name with apostrophe is injected via tojson so it cannot break the
+    # onclick JS string literal (regression: previously used '| e' which
+    # left raw ' inside a single-quoted JS string → SyntaxError).
+    assert "onclick='showRenameModal(" in resp.text
+    assert '"Alice\\u0027s Lab"' in resp.text
 
 
 @pytest.mark.asyncio
