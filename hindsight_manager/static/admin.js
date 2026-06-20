@@ -325,9 +325,9 @@ async function loadApiKeys(page = 1) {
   } else {
     tbody.innerHTML = data.items.map(k => `
       <tr>
+        <td>${escapeHtml(k.tenant_name)}</td>
         <td>${escapeHtml(k.name)}${k.is_system ? ' <span class="badge badge-system">系统</span>' : ''}</td>
         <td><code>${escapeHtml(k.key_prefix)}...</code></td>
-        <td>${escapeHtml(k.tenant_name)}</td>
         <td>${formatDate(k.created_at)}</td>
         <td>${formatDate(k.last_used_at)}</td>
         <td class="action-cell">
