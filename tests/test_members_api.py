@@ -222,6 +222,92 @@ async def test_add_duplicate_member(client: AsyncClient):
     assert resp.status_code == 409
 
 
+# ---------- GET /tenants/{id}/members/lookup ----------
+
+def _make_lookup_user(user_id: str, username: str, display_name: str, email):
+    u = _make_user(user_id, username)
+    u.display_name = display_name
+    u.email = email
+    return u
+
+
+@pytest.mark.asyncio
+async def test_lookup_member_success(client: AsyncClient):
+    _login_as(OWNER_ID, "owner")
+    owner_membership = _make_membership(OWNER_ID, TENANT_ID, MemberRole.OWNER)
+    join_result = MagicMock()
+    join_result.one_or_none.return_value = (owner_membership, _make_tenant(TENANT_ID))
+
+    target_result = MagicMock()
+    target_result.scalar_one_or_none.return_value = _make_lookup_user(
+        TARGET_USER_ID, "newbie", "Newbie", "newbie@example.com"
+    )
+
+    existing_result = MagicMock()
+    existing_result.scalar_one_or_none.return_value = None
+
+    _override_session_side_effect([join_result, target_result, existing_result])
+
+    resp = await client.get(f"/tenants/{TENANT_ID}/members/lookup?username=newbie")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["username"] == "newbie"
+    assert body["display_name"] == "Newbie"
+    assert body["email"] == "newbie@example.com"
+    assert body["is_already_member"] is False
+
+
+@pytest.mark.asyncio
+async def test_lookup_member_already_member(client: AsyncClient):
+    _login_as(OWNER_ID, "owner")
+    owner_membership = _make_membership(OWNER_ID, TENANT_ID, MemberRole.OWNER)
+    join_result = MagicMock()
+    join_result.one_or_none.return_value = (owner_membership, _make_tenant(TENANT_ID))
+
+    target_result = MagicMock()
+    target_result.scalar_one_or_none.return_value = _make_lookup_user(
+        TARGET_USER_ID, "newbie", "Newbie", None
+    )
+
+    existing = _make_membership(TARGET_USER_ID, TENANT_ID, MemberRole.MEMBER)
+    existing_result = MagicMock()
+    existing_result.scalar_one_or_none.return_value = existing
+
+    _override_session_side_effect([join_result, target_result, existing_result])
+
+    resp = await client.get(f"/tenants/{TENANT_ID}/members/lookup?username=newbie")
+    assert resp.status_code == 200
+    assert resp.json()["is_already_member"] is True
+
+
+@pytest.mark.asyncio
+async def test_lookup_member_not_found(client: AsyncClient):
+    _login_as(OWNER_ID, "owner")
+    owner_membership = _make_membership(OWNER_ID, TENANT_ID, MemberRole.OWNER)
+    join_result = MagicMock()
+    join_result.one_or_none.return_value = (owner_membership, _make_tenant(TENANT_ID))
+
+    target_result = MagicMock()
+    target_result.scalar_one_or_none.return_value = None
+
+    _override_session_side_effect([join_result, target_result])
+
+    resp = await client.get(f"/tenants/{TENANT_ID}/members/lookup?username=ghost")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_lookup_member_requires_owner(client: AsyncClient):
+    _login_as(MEMBER_ID, "member")
+    member_membership = _make_membership(MEMBER_ID, TENANT_ID, MemberRole.MEMBER)
+    join_result = MagicMock()
+    join_result.one_or_none.return_value = (member_membership, _make_tenant(TENANT_ID))
+    _override_session_side_effect([join_result])
+
+    resp = await client.get(f"/tenants/{TENANT_ID}/members/lookup?username=newbie")
+    assert resp.status_code == 403
+
+
 # ---------- DELETE /tenants/{id}/members/{user_id} ----------
 
 @pytest.mark.asyncio

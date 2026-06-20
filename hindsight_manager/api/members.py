@@ -29,6 +29,14 @@ class MemberResponse(BaseModel):
     role: str
 
 
+class MemberLookupResponse(BaseModel):
+    user_id: str
+    username: str
+    display_name: str
+    email: str | None
+    is_already_member: bool
+
+
 async def _require_owner(session: AsyncSession, user: User, tenant_id: uuid.UUID) -> Tenant:
     result = await session.execute(
         select(TenantMember, Tenant)
@@ -62,6 +70,34 @@ async def list_members(
         .where(TenantMember.tenant_id == tenant_id)
     )
     return [MemberResponse(user_id=str(u.id), username=u.username, role=m.role.value) for m, u in result.all()]
+
+
+@router.get("/members/lookup", response_model=MemberLookupResponse)
+async def lookup_member(
+    tenant_id: uuid.UUID,
+    username: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    await _require_owner(session, current_user, tenant_id)
+
+    result = await session.execute(select(User).where(User.username == username))
+    target_user = result.scalar_one_or_none()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    existing = await session.execute(
+        select(TenantMember).where(
+            TenantMember.user_id == target_user.id, TenantMember.tenant_id == tenant_id
+        )
+    )
+    return MemberLookupResponse(
+        user_id=str(target_user.id),
+        username=target_user.username,
+        display_name=target_user.display_name,
+        email=target_user.email,
+        is_already_member=existing.scalar_one_or_none() is not None,
+    )
 
 
 @router.post("/members", response_model=MemberResponse, status_code=201)

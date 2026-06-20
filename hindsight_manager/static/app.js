@@ -359,7 +359,7 @@ function renderMembersPanel(panel, tenantId, members, role, currentUserId) {
   const isOwner = role === 'owner';
   const ownerCount = members.filter(m => m.role === 'owner').length;
 
-  let html = '<div class="members-panel-header"><h4>成员</h4></div>';
+  let html = `<div class="members-panel-header"><h4>成员</h4>${isOwner ? `<button class="btn btn-primary btn-sm" onclick="showMemberAddModal('${tenantId}','${role}','${currentUserId}')">+ 添加</button>` : ''}</div>`;
 
   if (members.length === 0) {
     html += '<div class="member-empty">暂无成员</div>';
@@ -397,30 +397,101 @@ function renderMembersPanel(panel, tenantId, members, role, currentUserId) {
     </div>`;
   }).join('');
 
-  if (isOwner) {
-    html += `<form class="member-add-form" onsubmit="addMember(event,'${tenantId}','${role}','${currentUserId}')">
-      <input type="text" name="username" placeholder="用户名" required>
-      <select name="role">
-        <option value="member" selected>member</option>
-        <option value="owner">owner</option>
-      </select>
-      <button type="submit" class="btn btn-primary btn-sm">添加</button>
-      <div class="member-error" id="member-add-error-${tenantId}" style="display:none"></div>
-    </form>`;
-  }
-
   panel.innerHTML = html;
 }
 
-async function addMember(event, tenantId, role, currentUserId) {
-  event.preventDefault();
-  const form = event.target;
-  const username = form.username.value.trim();
-  const newRole = form.role.value;
-  const errEl = document.getElementById(`member-add-error-${tenantId}`);
-  errEl.style.display = 'none';
-  errEl.textContent = '';
+// ============ 成员添加弹窗 ============
 
+function showMemberAddModal(tenantId, role, currentUserId) {
+  const modal = document.getElementById('member-add-modal');
+  modal.dataset.tenantId = tenantId;
+  modal.dataset.role = role;
+  modal.dataset.currentUserId = currentUserId;
+  modal.dataset.lookupUserId = '';
+
+  document.getElementById('member-username-input').value = '';
+  document.getElementById('member-role-select').value = 'member';
+  _resetMemberPreview();
+  modal.classList.remove('hidden');
+  document.getElementById('member-username-input').focus();
+}
+
+function hideMemberAddModal() {
+  document.getElementById('member-add-modal').classList.add('hidden');
+  if (_activePanel && _activePanel.type === 'members') {
+    const panel = document.getElementById(`members-panel-${_activePanel.tenantId}`);
+    if (panel) {
+      loadMembers(_activePanel.tenantId, panel.dataset.currentRole, panel.dataset.currentUserId);
+    }
+  }
+}
+
+function _resetMemberPreview() {
+  const preview = document.getElementById('member-preview');
+  preview.style.display = 'none';
+  preview.innerHTML = '';
+  preview.className = 'member-preview';
+  document.getElementById('member-add-submit').disabled = true;
+}
+
+function onMemberUsernameInput() {
+  // 用户名改动后，旧的 lookup 结果失效，清掉 preview、禁用提交
+  _resetMemberPreview();
+}
+
+async function lookupMember() {
+  const modal = document.getElementById('member-add-modal');
+  const tenantId = modal.dataset.tenantId;
+  const username = document.getElementById('member-username-input').value.trim();
+  if (!username) return;
+
+  const preview = document.getElementById('member-preview');
+  preview.style.display = 'block';
+  preview.className = 'member-preview';
+  preview.innerHTML = '<div class="member-preview-status-row"><span class="member-preview-status status-muted">查找中...</span></div>';
+  document.getElementById('member-add-submit').disabled = true;
+  modal.dataset.lookupUserId = '';
+
+  try {
+    const resp = await fetch(
+      `/tenants/${tenantId}/members/lookup?username=${encodeURIComponent(username)}`,
+      { credentials: 'include' }
+    );
+    if (resp.status === 404) {
+      preview.className = 'member-preview is-error';
+      preview.innerHTML = '<div class="member-preview-status-row"><span class="member-preview-status status-danger">用户不存在</span></div>';
+      return;
+    }
+    if (!resp.ok) {
+      preview.className = 'member-preview is-error';
+      preview.innerHTML = '<div class="member-preview-status-row"><span class="member-preview-status status-danger">查找失败</span></div>';
+      return;
+    }
+    const data = await resp.json();
+    modal.dataset.lookupUserId = data.user_id;
+    const identity = `<div class="member-preview-name">${escapeHtml(data.display_name)} <span class="member-preview-username">@${escapeHtml(data.username)}</span></div>`
+      + (data.email ? `<div class="member-preview-email">${escapeHtml(data.email)}</div>` : '');
+    if (data.is_already_member) {
+      preview.className = 'member-preview is-conflict';
+      preview.innerHTML = identity + '<div class="member-preview-status-row"><span class="member-preview-status status-warning">已是成员</span></div>';
+      return;
+    }
+    preview.className = 'member-preview';
+    preview.innerHTML = identity + '<div class="member-preview-status-row"><span class="member-preview-status status-success">可添加</span></div>';
+    document.getElementById('member-add-submit').disabled = false;
+  } catch (e) {
+    preview.className = 'member-preview is-error';
+    preview.innerHTML = '<div class="member-preview-status-row"><span class="member-preview-status status-danger">网络错误</span></div>';
+  }
+}
+
+async function confirmAddMember(event) {
+  event.preventDefault();
+  const modal = document.getElementById('member-add-modal');
+  const tenantId = modal.dataset.tenantId;
+  const username = document.getElementById('member-username-input').value.trim();
+  const role = document.getElementById('member-role-select').value;
+  const preview = document.getElementById('member-preview');
   if (!username) return;
 
   try {
@@ -428,22 +499,23 @@ async function addMember(event, tenantId, role, currentUserId) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ username, role: newRole }),
+      body: JSON.stringify({ username, role }),
     });
     if (!resp.ok) {
       const data = await resp.json().catch(() => ({}));
-      const msg = data.detail || '添加失败';
-      errEl.textContent = msg === 'User not found' ? '找不到该用户'
-        : msg === 'User is already a member' ? '该用户已是成员'
-        : msg === 'Owner access required' ? '无权限'
-        : msg;
-      errEl.style.display = 'block';
+      const detail = data.detail || '添加失败';
+      const msg = detail === 'User not found' ? '找不到该用户'
+        : detail === 'User is already a member' ? '该用户已是成员'
+        : detail === 'Owner access required' ? '无权限'
+        : detail;
+      preview.className = 'member-preview is-error';
+      preview.innerHTML = `<div class="member-preview-status-row"><span class="member-preview-status status-danger">${escapeHtml(msg)}</span></div>`;
       return;
     }
-    form.username.value = '';
-    await loadMembers(tenantId, role, currentUserId);
+    hideMemberAddModal();
   } catch (e) {
-    alert('网络错误');
+    preview.className = 'member-preview is-error';
+    preview.innerHTML = '<div class="member-preview-status-row"><span class="member-preview-status status-danger">网络错误</span></div>';
   }
 }
 

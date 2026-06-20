@@ -105,6 +105,34 @@
     </div>
 </div>
 
+<div id="member-add-modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="hideMemberAddModal()"></div>
+    <div class="modal-content">
+        <h3>添加成员</h3>
+        <form id="member-add-form" onsubmit="confirmAddMember(event)">
+            <div class="form-group">
+                <label for="member-username-input">用户名</label>
+                <div class="member-lookup-row">
+                    <input type="text" id="member-username-input" required placeholder="输入用户名" autocomplete="off" oninput="onMemberUsernameInput()">
+                    <button type="button" class="btn btn-secondary" onclick="lookupMember()">查找</button>
+                </div>
+            </div>
+            <div id="member-preview" class="member-preview" style="display:none"></div>
+            <div class="form-group">
+                <label for="member-role-select">角色</label>
+                <select id="member-role-select">
+                    <option value="member" selected>member</option>
+                    <option value="owner">owner</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="hideMemberAddModal()">取消</button>
+                <button type="submit" id="member-add-submit" class="btn btn-primary" disabled>添加</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% if mcp_url %}
 <div id="mcp-config-modal" class="modal hidden">
     <div class="modal-backdrop" onclick="hideMcpConfigModal()"></div>
