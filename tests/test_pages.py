@@ -72,8 +72,60 @@ async def test_dashboard_page_renders(client: AsyncClient):
     assert "window.MCP_URL" in resp.text
     # Old static MCP URL display row should be gone
     assert ">MCP 地址<" not in resp.text
-    # Rename modal
+    # Rename modal (rendered unconditionally)
     assert "重命名" in resp.text
     assert 'id="rename-modal"' in resp.text
     assert 'id="rename-name"' in resp.text
     assert 'id="rename-tenant-id"' in resp.text
+
+
+@pytest.mark.asyncio
+async def test_dashboard_owner_card_renders_rename_icon(client: AsyncClient):
+    tenant = MagicMock()
+    tenant.id = "t-1"
+    tenant.name = "My Lab"
+    tenant.schema_name = "tenant_x"
+    role = MagicMock()
+    role.value = "owner"
+
+    mock_result = MagicMock()
+    mock_result.all.return_value = [(tenant, role)]
+
+    mock_session = AsyncMock()
+    mock_session.execute.return_value = mock_result
+
+    async def _override():
+        yield mock_session
+
+    app.dependency_overrides[get_session] = _override
+
+    resp = await client.get("/dashboard")
+    assert resp.status_code == 200
+    # Owner sees the rename icon button next to the name
+    assert 'class="tenant-edit-btn"' in resp.text
+    assert 'aria-label="重命名"' in resp.text
+
+
+@pytest.mark.asyncio
+async def test_dashboard_member_card_has_no_rename_icon(client: AsyncClient):
+    tenant = MagicMock()
+    tenant.id = "t-1"
+    tenant.name = "My Lab"
+    tenant.schema_name = "tenant_x"
+    role = MagicMock()
+    role.value = "member"
+
+    mock_result = MagicMock()
+    mock_result.all.return_value = [(tenant, role)]
+
+    mock_session = AsyncMock()
+    mock_session.execute.return_value = mock_result
+
+    async def _override():
+        yield mock_session
+
+    app.dependency_overrides[get_session] = _override
+
+    resp = await client.get("/dashboard")
+    assert resp.status_code == 200
+    assert "tenant-edit-btn" not in resp.text
