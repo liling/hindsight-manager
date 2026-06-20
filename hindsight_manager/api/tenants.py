@@ -27,6 +27,7 @@ class TenantCreateRequest(BaseModel):
 
 
 class TenantConfigUpdateRequest(BaseModel):
+    name: str | None = None
     llm_provider: str | None = None
     llm_model: str | None = None
     llm_api_key: str | None = None
@@ -148,8 +149,16 @@ async def update_tenant_config(
     session: AsyncSession = Depends(get_session),
 ):
     _, tenant = await _require_membership(session, current_user, tenant_id, require_owner=True)
+
+    if req.name is not None:
+        trimmed = req.name.strip()
+        if not (1 <= len(trimmed) <= 255):
+            raise HTTPException(status_code=422, detail="名称长度需在 1-255 之间")
+        tenant.name = trimmed
+
     config = tenant.config or {}
     update_data = req.model_dump(exclude_none=True)
+    update_data.pop("name", None)
     config.update(update_data)
     tenant.config = config
     await session.commit()
