@@ -1,5 +1,6 @@
 import html as html_lib
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
@@ -75,6 +76,8 @@ async def login(request: Request, req: LoginRequest, _rate_limit=Depends(login_l
         user = result.scalar_one_or_none()
         if not user or not verify_password(req.password, user.password_hash or ""):
             raise HTTPException(status_code=401, detail="Invalid credentials")
+        user.last_login_at = datetime.now(timezone.utc)
+        await session.commit()
         token = create_token(str(user.id), user.username, settings.jwt_secret)
         resp = JSONResponse(content={"token": token, "user": _user_response(user).model_dump()})
         _set_session(resp, token)
@@ -98,6 +101,8 @@ async def login(request: Request, req: LoginRequest, _rate_limit=Depends(login_l
             session.add(user)
             await session.commit()
             await session.refresh(user)
+        user.last_login_at = datetime.now(timezone.utc)
+        await session.commit()
         resp = JSONResponse(content={"token": result["token"], "user": _user_response(user).model_dump()})
         _set_session(resp, result["token"])
         return resp
@@ -122,6 +127,8 @@ async def login_form(
         return templates.TemplateResponse(
             request, "login.html", {"error": "用户名或密码错误"},
         )
+    user.last_login_at = datetime.now(timezone.utc)
+    await session.commit()
     token = create_token(str(user.id), user.username, settings.jwt_secret)
     resp = RedirectResponse(url="/dashboard", status_code=303)
     _set_session(resp, token)
@@ -153,6 +160,8 @@ async def cas_callback(ticket: str, session: AsyncSession = Depends(get_session)
         session.add(user)
         await session.commit()
         await session.refresh(user)
+    user.last_login_at = datetime.now(timezone.utc)
+    await session.commit()
     resp = JSONResponse(content={"user": _user_response(user).model_dump()})
     _set_session(resp, result["token"])
     return resp
