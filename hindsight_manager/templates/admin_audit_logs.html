@@ -38,6 +38,17 @@
     <div id="audit-pagination" class="pagination"></div>
 </div>
 
+<div id="audit-detail-modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="hideAuditDetailModal()"></div>
+    <div class="modal-content" style="max-width:560px">
+        <h3>审计详情</h3>
+        <pre id="audit-detail-content" style="margin:0;max-height:60vh;overflow:auto;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-all"></pre>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-primary" onclick="hideAuditDetailModal()">关闭</button>
+        </div>
+    </div>
+</div>
+
 <script src="{{ '/static/admin.js' | asset_url }}"></script>
 <script>
 document.addEventListener("DOMContentLoaded", () => loadAuditLogs());

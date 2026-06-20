@@ -16,6 +16,16 @@ function formatDate(isoStr) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
+function showAuditDetail(btn) {
+  const detail = JSON.parse(btn.dataset.detail);
+  document.getElementById("audit-detail-content").textContent = JSON.stringify(detail, null, 2);
+  document.getElementById("audit-detail-modal").classList.remove("hidden");
+}
+
+function hideAuditDetailModal() {
+  document.getElementById("audit-detail-modal").classList.add("hidden");
+}
+
 async function apiFetch(url, options = {}) {
   const resp = await fetch(url, { credentials: "include", ...options });
   if (resp.status === 403) {
@@ -378,7 +388,7 @@ async function loadAuditLogs(page = 1) {
         <td>${escapeHtml(l.resource_type)}</td>
         <td><code>${escapeHtml(l.resource_id).substring(0, 8)}...</code></td>
         <td>${escapeHtml(l.ip_address || "-")}</td>
-        <td>${l.detail ? `<button class="btn btn-ghost btn-sm" onclick="alert(JSON.stringify(${JSON.stringify(l.detail)}, null, 2))">查看</button>` : "-"}</td>
+        <td>${l.detail ? `<button class="btn btn-ghost btn-sm" data-detail='${escapeAttr(JSON.stringify(l.detail))}' onclick="showAuditDetail(this)">查看</button>` : "-"}</td>
       </tr>
     `).join("");
   }
