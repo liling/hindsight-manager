@@ -209,8 +209,8 @@ function renderApiKeysList(panel, tenantId, keys) {
         </div>
       </div>
       ${!k.is_system ? `<div class="api-key-item-actions">
-        <button class="btn btn-ghost btn-sm" onclick="copyKey('${escapeHtml(k.key_prefix)}...')">复制前缀</button>
-        <button class="btn btn-danger btn-sm" onclick="revokeApiKey('${tenantId}', '${k.id}')">删除</button>
+        <button class="btn btn-ghost btn-sm" onclick='copyKey(${attrJson(k.key_prefix + "...")})'>复制前缀</button>
+        <button class="btn btn-danger btn-sm" onclick='revokeApiKey(${attrJson(tenantId)}, ${attrJson(k.id)})'>删除</button>
       </div>` : ''}
     </div>
   `).join('');
