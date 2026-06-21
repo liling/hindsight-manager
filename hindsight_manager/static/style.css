@@ -415,6 +415,20 @@ a:hover { text-decoration: underline; }
 }
 .tenant-card:hover .tenant-edit-btn { opacity: 1; }
 .tenant-edit-btn:hover { color: var(--text-primary); background: var(--border); }
+.api-key-edit-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 2px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    margin-left: 6px;
+    transition: color 0.15s, background 0.15s;
+}
+.api-key-edit-btn:hover { color: var(--text-primary); background: var(--border); }
 .tenant-meta {
     font-size: 12.5px;
     color: var(--text-muted);
