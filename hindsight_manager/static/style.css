@@ -426,8 +426,10 @@ a:hover { text-decoration: underline; }
     align-items: center;
     vertical-align: middle;
     margin-left: 6px;
-    transition: color 0.15s, background 0.15s;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s, background 0.15s;
 }
+.api-key-item:hover .api-key-edit-btn { opacity: 1; }
 .api-key-edit-btn:hover { color: var(--text-primary); background: var(--border); }
 .tenant-meta {
     font-size: 12.5px;
