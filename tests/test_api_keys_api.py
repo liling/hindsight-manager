@@ -4,6 +4,7 @@ These endpoints are touched by the upcoming service-layer refactor;
 this file establishes a behavior baseline before that refactor.
 """
 
+import datetime
 import uuid
 from unittest.mock import AsyncMock, MagicMock
 
@@ -71,10 +72,21 @@ def _override_session_side_effect(side_effect):
     mock_session = AsyncMock()
     mock_session.execute.side_effect = side_effect
     mock_session.commit = AsyncMock()
-    mock_session.refresh = AsyncMock()
     mock_session.delete = AsyncMock()
     mock_session.add = MagicMock()
     mock_session.get = AsyncMock(return_value=None)
+
+    # Populate ApiKey defaults when refresh() is called
+    async def _mock_refresh(obj):
+        if hasattr(obj, '__class__') and obj.__class__.__name__ == 'ApiKey':
+            if obj.id is None:
+                obj.id = uuid.UUID("00000000-0000-0000-0000-000000000099")
+            if obj.is_system is None:
+                obj.is_system = False
+            if obj.created_at is None:
+                obj.created_at = datetime.datetime.now()
+
+    mock_session.refresh = AsyncMock(side_effect=_mock_refresh)
 
     async def _override():
         yield mock_session
