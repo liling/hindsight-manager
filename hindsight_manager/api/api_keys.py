@@ -43,6 +43,10 @@ class CreateApiKeyRequest(BaseModel):
     name: str
 
 
+class UpdateApiKeyRequest(BaseModel):
+    name: str
+
+
 class ApiKeyResponse(BaseModel):
     id: str
     name: str
@@ -128,3 +132,42 @@ async def revoke_api_key(
     await session.delete(api_key)
     await session.commit()
     return {"ok": True}
+
+
+@router.patch("/api-keys/{key_id}", response_model=ApiKeyResponse)
+async def update_api_key(
+    tenant_id: uuid.UUID,
+    key_id: uuid.UUID,
+    req: UpdateApiKeyRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    await _require_owner(session, current_user, tenant_id)
+
+    result = await session.execute(
+        select(ApiKey).where(ApiKey.id == key_id, ApiKey.tenant_id == tenant_id)
+    )
+    api_key = result.scalar_one_or_none()
+    if not api_key:
+        raise HTTPException(status_code=404, detail="API key not found")
+    if api_key.is_system:
+        raise HTTPException(status_code=403, detail="System API key cannot be renamed")
+
+    trimmed = req.name.strip()
+    if not (1 <= len(trimmed) <= 255):
+        raise HTTPException(status_code=422, detail="名称长度需在 1-255 之间")
+    api_key.name = trimmed
+    await session.commit()
+    await session.refresh(api_key)
+
+    def _fmt(v):
+        return v.isoformat() if hasattr(v, "isoformat") else str(v)
+
+    return ApiKeyResponse(
+        id=str(api_key.id),
+        name=api_key.name,
+        key_prefix=api_key.key_prefix,
+        is_system=api_key.is_system,
+        created_at=_fmt(api_key.created_at),
+        last_used_at=_fmt(api_key.last_used_at) if api_key.last_used_at else None,
+    )
