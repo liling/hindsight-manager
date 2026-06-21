@@ -201,7 +201,7 @@ function renderApiKeysList(panel, tenantId, keys) {
   html += keys.map(k => `
     <div class="api-key-item" id="api-key-${k.id}">
       <div class="api-key-item-info">
-        <span class="api-key-item-name">${escapeHtml(k.name)}${k.is_system ? ' <span class="badge badge-system">系统</span>' : ''}${!k.is_system ? ` <button type="button" class="api-key-edit-btn" title="重命名" aria-label="重命名" onclick="showRenameApikeyModal('${tenantId}', '${k.id}', ${JSON.stringify(k.name)})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></button>` : ''}</span>
+        <span class="api-key-item-name">${escapeHtml(k.name)}${k.is_system ? ' <span class="badge badge-system">系统</span>' : ''}${!k.is_system ? ` <button type="button" class="api-key-edit-btn" title="重命名" aria-label="重命名" onclick='showRenameApikeyModal(${JSON.stringify(tenantId)}, ${JSON.stringify(k.id)}, ${JSON.stringify(k.name)})'><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></button>` : ''}</span>
         <div class="api-key-item-detail">
           <code>${escapeHtml(k.key_prefix)}...</code>
           <span>创建于 ${formatDate(k.created_at)}</span>
