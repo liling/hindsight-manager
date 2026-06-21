@@ -95,6 +95,25 @@
     </div>
 </div>
 
+<div id="rename-apikey-modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="hideRenameApikeyModal()"></div>
+    <div class="modal-content">
+        <h3>重命名 API Key</h3>
+        <form id="rename-apikey-form" onsubmit="renameApiKey(event)">
+            <div class="form-group">
+                <label for="rename-apikey-name">名称</label>
+                <input type="text" id="rename-apikey-name" name="name" required placeholder="输入新名称">
+                <input type="hidden" id="rename-apikey-id">
+                <input type="hidden" id="rename-apikey-tenant">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="hideRenameApikeyModal()">取消</button>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div id="apikey-modal" class="modal hidden">
     <div class="modal-backdrop" onclick="hideApiKeyModal()"></div>
     <div class="modal-content">

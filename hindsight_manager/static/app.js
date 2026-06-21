@@ -79,6 +79,44 @@ function hideRenameModal() {
   document.getElementById("rename-modal").classList.add("hidden");
 }
 
+function showRenameApikeyModal(tenantId, keyId, currentName) {
+  document.getElementById("rename-apikey-id").value = keyId;
+  document.getElementById("rename-apikey-tenant").value = tenantId;
+  const input = document.getElementById("rename-apikey-name");
+  input.value = currentName;
+  document.getElementById("rename-apikey-modal").classList.remove("hidden");
+  input.focus();
+  input.select();
+}
+
+function hideRenameApikeyModal() {
+  document.getElementById("rename-apikey-modal").classList.add("hidden");
+}
+
+async function renameApiKey(e) {
+  e.preventDefault();
+  const keyId = document.getElementById("rename-apikey-id").value;
+  const tenantId = document.getElementById("rename-apikey-tenant").value;
+  const name = document.getElementById("rename-apikey-name").value;
+  try {
+    const resp = await fetch(`/tenants/${tenantId}/api-keys/${keyId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ name }),
+    });
+    if (resp.ok) {
+      hideRenameApikeyModal();
+      loadApiKeys(tenantId);
+    } else {
+      const data = await resp.json().catch(() => ({}));
+      alert(data.detail || "重命名失败");
+    }
+  } catch (err) {
+    alert("网络错误，重命名失败");
+  }
+}
+
 async function renameTenant(e) {
   e.preventDefault();
   const tenantId = document.getElementById("rename-tenant-id").value;
@@ -163,7 +201,7 @@ function renderApiKeysList(panel, tenantId, keys) {
   html += keys.map(k => `
     <div class="api-key-item" id="api-key-${k.id}">
       <div class="api-key-item-info">
-        <span class="api-key-item-name">${escapeHtml(k.name)}${k.is_system ? ' <span class="badge badge-system">系统</span>' : ''}</span>
+        <span class="api-key-item-name">${escapeHtml(k.name)}${k.is_system ? ' <span class="badge badge-system">系统</span>' : ''}${!k.is_system ? ` <button type="button" class="api-key-edit-btn" title="重命名" aria-label="重命名" onclick='showRenameApikeyModal(${attrJson(tenantId)}, ${attrJson(k.id)}, ${attrJson(k.name)})'><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></button>` : ''}</span>
         <div class="api-key-item-detail">
           <code>${escapeHtml(k.key_prefix)}...</code>
           <span>创建于 ${formatDate(k.created_at)}</span>
@@ -171,8 +209,8 @@ function renderApiKeysList(panel, tenantId, keys) {
         </div>
       </div>
       ${!k.is_system ? `<div class="api-key-item-actions">
-        <button class="btn btn-ghost btn-sm" onclick="copyKey('${escapeHtml(k.key_prefix)}...')">复制前缀</button>
-        <button class="btn btn-danger btn-sm" onclick="revokeApiKey('${tenantId}', '${k.id}')">删除</button>
+        <button class="btn btn-ghost btn-sm" onclick='copyKey(${attrJson(k.key_prefix + "...")})'>复制前缀</button>
+        <button class="btn btn-danger btn-sm" onclick='revokeApiKey(${attrJson(tenantId)}, ${attrJson(k.id)})'>删除</button>
       </div>` : ''}
     </div>
   `).join('');
@@ -184,6 +222,15 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+function attrJson(value) {
+  return JSON.stringify(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/'/g, '&#39;')
+    .replace(/"/g, '&quot;');
 }
 
 function formatDate(isoStr) {
