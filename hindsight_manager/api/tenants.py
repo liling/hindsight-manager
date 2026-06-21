@@ -1,23 +1,16 @@
-import hashlib
-import secrets
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hindsight_manager.auth.dependencies import get_current_user
-from hindsight_manager.config import Settings
-from hindsight_manager.crypto import encrypt_sm4
 from hindsight_manager.db import get_session
-from hindsight_manager.models.api_key import ApiKey
 from hindsight_manager.models.tenant import Tenant, TenantStatus
-from hindsight_manager.models.tenant_member import MemberRole, TenantMember
+from hindsight_manager.models.tenant_member import MemberRole
 from hindsight_manager.models.user import User
-
-KEY_PREFIX = "hsm_"
-SYSTEM_KEY_NAME = "system-proxy-key"
+from hindsight_manager.services import tenant_service
+from hindsight_manager.services.membership import require_membership
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
 
@@ -61,37 +54,13 @@ def _tenant_response(t: Tenant) -> TenantResponse:
     )
 
 
-async def _require_membership(
-    session: AsyncSession,
-    user: User,
-    tenant_id: uuid.UUID,
-    require_owner: bool = False,
-):
-    result = await session.execute(
-        select(TenantMember, Tenant)
-        .join(Tenant, TenantMember.tenant_id == Tenant.id)
-        .where(TenantMember.user_id == user.id, TenantMember.tenant_id == tenant_id)
-    )
-    row = result.one_or_none()
-    if not row:
-        raise HTTPException(status_code=404, detail="Tenant not found or you are not a member")
-    membership, tenant = row
-    if require_owner and membership.role != MemberRole.OWNER:
-        raise HTTPException(status_code=403, detail="Owner access required")
-    return membership, tenant
-
-
 @router.get("", response_model=list[TenantResponse])
 async def list_tenants(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    result = await session.execute(
-        select(Tenant, TenantMember.role)
-        .join(TenantMember, Tenant.id == TenantMember.tenant_id)
-        .where(TenantMember.user_id == current_user.id)
-    )
-    return [_tenant_response(t) for t, role in result.all()]
+    tenants = await tenant_service.list_tenants_for_user(session, current_user.id)
+    return [_tenant_response(t) for t in tenants]
 
 
 @router.post("", response_model=TenantResponse, status_code=201)
@@ -100,34 +69,7 @@ async def create_tenant(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    schema_name = f"tenant_{uuid.uuid4().hex[:8]}"
-    tenant = Tenant(name=req.name, schema_name=schema_name, status=TenantStatus.ACTIVE)
-    session.add(tenant)
-    await session.flush()
-
-    membership = TenantMember(user_id=current_user.id, tenant_id=tenant.id, role=MemberRole.OWNER)
-    session.add(membership)
-
-    # Auto-generate system API key
-    settings = Settings()
-    raw_key = f"{KEY_PREFIX}{secrets.token_hex(32)}"
-    key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
-    key_prefix = raw_key[:16]
-    encryption_key_bytes = bytes.fromhex(settings.encryption_key)
-    encrypted_key = encrypt_sm4(raw_key, encryption_key_bytes)
-
-    system_key = ApiKey(
-        tenant_id=tenant.id,
-        key_hash=key_hash,
-        key_prefix=key_prefix,
-        name=SYSTEM_KEY_NAME,
-        is_system=True,
-        encrypted_key=encrypted_key,
-    )
-    session.add(system_key)
-
-    await session.commit()
-    await session.refresh(tenant)
+    tenant = await tenant_service.create_tenant(session, current_user, req.name)
     return _tenant_response(tenant)
 
 
@@ -137,7 +79,8 @@ async def get_tenant(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    _, tenant = await _require_membership(session, current_user, tenant_id)
+    # require_membership 已 join 出 tenant，直接复用——避免二次查询
+    _, tenant = await require_membership(session, current_user, tenant_id)
     return _tenant_response(tenant)
 
 
@@ -148,21 +91,11 @@ async def update_tenant_config(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    _, tenant = await _require_membership(session, current_user, tenant_id, require_owner=True)
+    _, tenant = await require_membership(session, current_user, tenant_id, require_owner=True)
 
-    if req.name is not None:
-        trimmed = req.name.strip()
-        if not (1 <= len(trimmed) <= 255):
-            raise HTTPException(status_code=422, detail="名称长度需在 1-255 之间")
-        tenant.name = trimmed
-
-    config = tenant.config or {}
     update_data = req.model_dump(exclude_none=True)
-    update_data.pop("name", None)
-    config.update(update_data)
-    tenant.config = config
-    await session.commit()
-    await session.refresh(tenant)
+    name = update_data.pop("name", None)
+    tenant = await tenant_service.update_tenant_config(session, tenant, name, update_data)
     return _tenant_response(tenant)
 
 
@@ -172,6 +105,5 @@ async def delete_tenant(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    _, tenant = await _require_membership(session, current_user, tenant_id, require_owner=True)
-    tenant.status = TenantStatus.DELETING
-    await session.commit()
+    _, tenant = await require_membership(session, current_user, tenant_id, require_owner=True)
+    await tenant_service.mark_tenant_deleting(session, tenant)

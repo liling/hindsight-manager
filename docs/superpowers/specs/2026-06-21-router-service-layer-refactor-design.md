@@ -241,6 +241,10 @@ router 从 27 行降到 5 行，业务逻辑可在 `test_api_key_service.py` 直
 **位置**：`api_keys.py:78`、`api_keys.py:163`（改造前）
 **说明**：设计承诺"`_fmt` 仅在 `api_keys.py` 内合并一份"，正确。改造后这两个 `_fmt` 应合并为 router 文件内的模块级 `_fmt_dt(v)`，且保留 `None` 处理（原 `list_api_keys` 的 `_fmt_dt` 处理 None，原 `create_api_key` 的 `_fmt` 不处理 —— 以更严格的版本为准）。
 
+#### Issue 2.5 [P2] (resolved 2026-06-21, user-approved) 404 detail 统一
+**位置**：原 `api/api_keys.py:35`、`api/members.py:48`（改造前）使用 `detail="Not found"`；原 `api/tenants.py:77` 使用 `detail="Tenant not found or you are not a member"`。
+**说明**：共享 `services/membership.py` 后，三个 router 的 404 detail 被统一为更准确的 `"Tenant not found or you are not a member"`（沿用 tenants.py 原版本）。前端不依赖此 detail 文本（已验证 templates/ 与 static/ 无引用）。**用户审批为统一化的合理一部分。**
+
 ### NOT in scope
 
 - 不抽 `repositories/` 层（已声明，确认）

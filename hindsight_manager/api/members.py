@@ -1,15 +1,15 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hindsight_manager.auth.dependencies import get_current_user
 from hindsight_manager.db import get_session
-from hindsight_manager.models.tenant import Tenant
-from hindsight_manager.models.tenant_member import MemberRole, TenantMember
+from hindsight_manager.models.tenant_member import MemberRole
 from hindsight_manager.models.user import User
+from hindsight_manager.services import member_service
+from hindsight_manager.services.membership import require_membership, require_owner
 
 router = APIRouter(prefix="/tenants/{tenant_id}", tags=["members"])
 
@@ -37,39 +37,15 @@ class MemberLookupResponse(BaseModel):
     is_already_member: bool
 
 
-async def _require_owner(session: AsyncSession, user: User, tenant_id: uuid.UUID) -> Tenant:
-    result = await session.execute(
-        select(TenantMember, Tenant)
-        .join(Tenant, TenantMember.tenant_id == Tenant.id)
-        .where(TenantMember.user_id == user.id, TenantMember.tenant_id == tenant_id)
-    )
-    row = result.one_or_none()
-    if not row:
-        raise HTTPException(status_code=404, detail="Not found")
-    membership, tenant = row
-    if membership.role != MemberRole.OWNER:
-        raise HTTPException(status_code=403, detail="Owner access required")
-    return tenant
-
-
 @router.get("/members", response_model=list[MemberResponse])
 async def list_members(
     tenant_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    membership = await session.execute(
-        select(TenantMember).where(TenantMember.user_id == current_user.id, TenantMember.tenant_id == tenant_id)
-    )
-    if not membership.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Not found")
-
-    result = await session.execute(
-        select(TenantMember, User)
-        .join(User, TenantMember.user_id == User.id)
-        .where(TenantMember.tenant_id == tenant_id)
-    )
-    return [MemberResponse(user_id=str(u.id), username=u.username, role=m.role.value) for m, u in result.all()]
+    await require_membership(session, current_user, tenant_id)
+    pairs = await member_service.list_members(session, tenant_id)
+    return [MemberResponse(user_id=str(u.id), username=u.username, role=m.role.value) for m, u in pairs]
 
 
 @router.get("/members/lookup", response_model=MemberLookupResponse)
@@ -79,24 +55,15 @@ async def lookup_member(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    await _require_owner(session, current_user, tenant_id)
+    await require_owner(session, current_user, tenant_id)
 
-    result = await session.execute(select(User).where(User.username == username))
-    target_user = result.scalar_one_or_none()
-    if not target_user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    existing = await session.execute(
-        select(TenantMember).where(
-            TenantMember.user_id == target_user.id, TenantMember.tenant_id == tenant_id
-        )
-    )
+    user, is_already_member = await member_service.lookup_user(session, tenant_id, username)
     return MemberLookupResponse(
-        user_id=str(target_user.id),
-        username=target_user.username,
-        display_name=target_user.display_name,
-        email=target_user.email,
-        is_already_member=existing.scalar_one_or_none() is not None,
+        user_id=str(user.id),
+        username=user.username,
+        display_name=user.display_name,
+        email=user.email,
+        is_already_member=is_already_member,
     )
 
 
@@ -107,23 +74,10 @@ async def add_member(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    await _require_owner(session, current_user, tenant_id)
+    await require_owner(session, current_user, tenant_id)
 
-    result = await session.execute(select(User).where(User.username == req.username))
-    target_user = result.scalar_one_or_none()
-    if not target_user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    existing = await session.execute(
-        select(TenantMember).where(TenantMember.user_id == target_user.id, TenantMember.tenant_id == tenant_id)
-    )
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="User is already a member")
-
-    member = TenantMember(user_id=target_user.id, tenant_id=tenant_id, role=req.role)
-    session.add(member)
-    await session.commit()
-    return MemberResponse(user_id=str(target_user.id), username=target_user.username, role=req.role.value)
+    user, _ = await member_service.add_member(session, tenant_id, req.username, req.role)
+    return MemberResponse(user_id=str(user.id), username=user.username, role=req.role.value)
 
 
 @router.delete("/members/{user_id}", status_code=204)
@@ -133,16 +87,8 @@ async def remove_member(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    await _require_owner(session, current_user, tenant_id)
-
-    result = await session.execute(
-        select(TenantMember).where(TenantMember.user_id == user_id, TenantMember.tenant_id == tenant_id)
-    )
-    member = result.scalar_one_or_none()
-    if not member:
-        raise HTTPException(status_code=404, detail="Member not found")
-    await session.delete(member)
-    await session.commit()
+    await require_owner(session, current_user, tenant_id)
+    await member_service.remove_member(session, tenant_id, user_id)
 
 
 @router.patch("/members/{user_id}", response_model=MemberResponse)
@@ -153,21 +99,10 @@ async def update_member_role(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    await _require_owner(session, current_user, tenant_id)
-
-    result = await session.execute(
-        select(TenantMember).where(TenantMember.user_id == user_id, TenantMember.tenant_id == tenant_id)
-    )
-    member = result.scalar_one_or_none()
-    if not member:
-        raise HTTPException(status_code=404, detail="Member not found")
-
-    member.role = req.role
-    await session.commit()
-
-    target_user = await session.get(User, user_id)
+    await require_owner(session, current_user, tenant_id)
+    user, _ = await member_service.update_member_role(session, tenant_id, user_id, req.role)
     return MemberResponse(
         user_id=str(user_id),
-        username=target_user.username if target_user else "unknown",
+        username=user.username if user else "unknown",
         role=req.role.value,
     )
