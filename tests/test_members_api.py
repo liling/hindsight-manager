@@ -83,7 +83,7 @@ async def test_list_members_as_owner(client: AsyncClient):
     owner_membership = _make_membership(OWNER_ID, TENANT_ID, MemberRole.OWNER)
     other_membership = _make_membership(MEMBER_ID, TENANT_ID, MemberRole.MEMBER)
     membership_result = MagicMock()
-    membership_result.scalar_one_or_none.return_value = owner_membership
+    membership_result.one_or_none.return_value = (owner_membership, _make_tenant(TENANT_ID))
 
     list_rows = [
         (owner_membership, _make_user(OWNER_ID, "owner")),
@@ -105,8 +105,9 @@ async def test_list_members_as_owner(client: AsyncClient):
 async def test_list_members_as_member(client: AsyncClient):
     _login_as(MEMBER_ID, "member")
     membership_result = MagicMock()
-    membership_result.scalar_one_or_none.return_value = _make_membership(
-        MEMBER_ID, TENANT_ID, MemberRole.MEMBER
+    membership_result.one_or_none.return_value = (
+        _make_membership(MEMBER_ID, TENANT_ID, MemberRole.MEMBER),
+        _make_tenant(TENANT_ID),
     )
     list_result = MagicMock()
     list_result.all.return_value = []
@@ -120,7 +121,7 @@ async def test_list_members_as_member(client: AsyncClient):
 async def test_list_members_as_non_member(client: AsyncClient):
     _login_as(OUTSIDER_ID, "outsider")
     membership_result = MagicMock()
-    membership_result.scalar_one_or_none.return_value = None
+    membership_result.one_or_none.return_value = None
     _override_session_side_effect([membership_result])
 
     resp = await client.get(f"/tenants/{TENANT_ID}/members")

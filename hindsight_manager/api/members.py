@@ -7,9 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from hindsight_manager.auth.dependencies import get_current_user
 from hindsight_manager.db import get_session
-from hindsight_manager.models.tenant import Tenant
 from hindsight_manager.models.tenant_member import MemberRole, TenantMember
 from hindsight_manager.models.user import User
+from hindsight_manager.services.membership import require_membership, require_owner
 
 router = APIRouter(prefix="/tenants/{tenant_id}", tags=["members"])
 
@@ -37,32 +37,14 @@ class MemberLookupResponse(BaseModel):
     is_already_member: bool
 
 
-async def _require_owner(session: AsyncSession, user: User, tenant_id: uuid.UUID) -> Tenant:
-    result = await session.execute(
-        select(TenantMember, Tenant)
-        .join(Tenant, TenantMember.tenant_id == Tenant.id)
-        .where(TenantMember.user_id == user.id, TenantMember.tenant_id == tenant_id)
-    )
-    row = result.one_or_none()
-    if not row:
-        raise HTTPException(status_code=404, detail="Not found")
-    membership, tenant = row
-    if membership.role != MemberRole.OWNER:
-        raise HTTPException(status_code=403, detail="Owner access required")
-    return tenant
-
-
 @router.get("/members", response_model=list[MemberResponse])
 async def list_members(
     tenant_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    membership = await session.execute(
-        select(TenantMember).where(TenantMember.user_id == current_user.id, TenantMember.tenant_id == tenant_id)
-    )
-    if not membership.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Not found")
+    # 任意成员可看；require_membership 不要求 OWNER
+    await require_membership(session, current_user, tenant_id)
 
     result = await session.execute(
         select(TenantMember, User)
@@ -79,7 +61,7 @@ async def lookup_member(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    await _require_owner(session, current_user, tenant_id)
+    await require_owner(session, current_user, tenant_id)
 
     result = await session.execute(select(User).where(User.username == username))
     target_user = result.scalar_one_or_none()
@@ -107,7 +89,7 @@ async def add_member(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    await _require_owner(session, current_user, tenant_id)
+    await require_owner(session, current_user, tenant_id)
 
     result = await session.execute(select(User).where(User.username == req.username))
     target_user = result.scalar_one_or_none()
@@ -133,7 +115,7 @@ async def remove_member(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    await _require_owner(session, current_user, tenant_id)
+    await require_owner(session, current_user, tenant_id)
 
     result = await session.execute(
         select(TenantMember).where(TenantMember.user_id == user_id, TenantMember.tenant_id == tenant_id)
@@ -153,7 +135,7 @@ async def update_member_role(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    await _require_owner(session, current_user, tenant_id)
+    await require_owner(session, current_user, tenant_id)
 
     result = await session.execute(
         select(TenantMember).where(TenantMember.user_id == user_id, TenantMember.tenant_id == tenant_id)
