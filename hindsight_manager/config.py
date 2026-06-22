@@ -32,6 +32,14 @@ class Settings(BaseSettings):
     sendgrid_api_key: str | None = None
     sendgrid_from_email: str | None = None
 
+    # xinyi-platform integration (Plan B)
+    platform_url: str = "http://localhost:8000"
+    oauth_client_id: str = "hm-prod"
+    oauth_client_secret: str = ""
+    oauth_redirect_uri: str = "http://localhost:8001/auth/callback"
+    access_token_ttl_seconds: int = 900
+    refresh_token_ttl_days: int = 7
+
     model_config = {"env_prefix": "HINDSIGHT_MANAGER_", "env_file": ".env"}
 
     @model_validator(mode="after")
