@@ -17,19 +17,15 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
                 记忆库
             </a>
-            <a href="/password/change" class="nav-item{% if nav_active == 'password' %} active{% endif %}">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                修改密码
-            </a>
             <a href="/profile" class="nav-item{% if nav_active == 'profile' %} active{% endif %}">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                 个人资料
             </a>
-            {% if user.role.value == 'admin' %}
+            {% if user.role == 'admin' %}
             <div class="nav-section-title">管理</div>
-            <a href="/admin/users" class="nav-item{% if nav_active == 'users' %} active{% endif %}">
+            <a href="{{ platform_url }}/admin/users" class="nav-item" target="_blank">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                用户管理
+                用户管理 ↗
             </a>
             <a href="/admin/tenants" class="nav-item{% if nav_active == 'tenants' %} active{% endif %}">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
@@ -39,9 +35,13 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
                 API Key 管理
             </a>
-            <a href="/admin/audit-logs" class="nav-item{% if nav_active == 'audit_logs' %} active{% endif %}">
+            <a href="{{ platform_url }}/admin/audit-logs?client_id=hm-prod" class="nav-item" target="_blank">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                审计日志
+                审计日志 ↗
+            </a>
+            <a href="{{ platform_url }}/admin/login-history" class="nav-item" target="_blank">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                登录历史 ↗
             </a>
             <a href="/admin/task-monitor" class="nav-item{% if nav_active == 'task_monitor' %} active{% endif %}">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
@@ -65,7 +65,7 @@
 function handleLogout(e) {
     e.preventDefault();
     fetch('/auth/logout', { method: 'POST' })
-        .then(() => window.location.href = '/login');
+        .then(() => window.location.href = '/auth/login-redirect');
 }
 </script>
 {% endblock %}
