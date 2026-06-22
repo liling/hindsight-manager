@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
@@ -28,9 +30,28 @@ async def login_page(
     error: str = "",
     user: dict | None = Depends(get_current_user_or_none),
 ):
-    if user:
-        return RedirectResponse(url="/dashboard", status_code=302)
-    return templates.TemplateResponse(request, "login.html", {"error": error})
+    # Login is now handled by xinyi-platform. Redirect to the platform's
+    # OAuth2 authorize endpoint (this endpoint should rarely be hit since
+    # unauthenticated HM requests redirect to /auth/login-redirect).
+    from fastapi.responses import RedirectResponse
+    from hindsight_manager.config import Settings
+    from urllib.parse import urlencode
+    from hindsight_manager.auth.oauth_state import generate_oauth_state, sign_oauth_state
+
+    settings = Settings()
+    state = generate_oauth_state()
+    sig = sign_oauth_state(state, settings.jwt_secret)
+    params = {
+        "response_type": "code",
+        "client_id": settings.oauth_client_id,
+        "redirect_uri": settings.oauth_redirect_uri,
+        "state": sig,
+        "return_to": "/dashboard",
+    }
+    url = f"{settings.platform_url}/oauth/authorize?{urlencode(params)}"
+    resp = RedirectResponse(url=url, status_code=303)
+    resp.set_cookie("hm_oauth_state", sig, httponly=True, max_age=600, path="/auth", samesite="lax")
+    return resp
 
 
 @router.api_route("/dashboard", methods=["GET", "POST"], response_class=HTMLResponse)

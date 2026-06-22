@@ -18,10 +18,7 @@ MEMBER_ID = "00000000-0000-0000-0000-000000000020"
 
 
 def _make_user(user_id: str, username: str):
-    u = MagicMock()
-    u.id = uuid.UUID(user_id)
-    u.username = username
-    return u
+    return {"id": user_id, "username": username, "role": "owner"}
 
 
 def _make_membership(user_id, tenant_id, role):
