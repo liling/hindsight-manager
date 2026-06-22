@@ -66,8 +66,15 @@ async def lifespan(app: FastAPI):
         ps = PlatformSettings.from_app_settings(settings)
         client = XinyiPlatformClient(ps)
         try:
-            async with get_session() as session:
-                await audit_retry_once(session, client)
+            session_gen = get_session()
+            try:
+                session = await session_gen.__anext__()
+                try:
+                    await audit_retry_once(session, client)
+                finally:
+                    await session_gen.aclose()
+            except StopAsyncIteration:
+                pass
         except Exception as e:
             logger.warning("audit_retry_job failed: %s", e)
         finally:

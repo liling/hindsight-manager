@@ -7,6 +7,9 @@ Create Date: 2026-06-22
 WARNING: Only run after Plan B is stable for 1-2 weeks and data has been verified
 in xinyi.* schemas. This drops manager.users/audit_logs/login_history/email_verifications
 and the tenant_members FK constraint.
+
+All DDL uses IF EXISTS so the migration is idempotent and safe to run repeatedly
+even if some tables were never created. DO block ensures the FK drop is also idempotent.
 """
 from typing import Sequence, Union
 
@@ -27,10 +30,10 @@ def upgrade() -> None:
         EXCEPTION WHEN OTHERS THEN null;
         END $$;
     """)
-    op.drop_table("email_verifications", schema="manager")
-    op.drop_table("login_history", schema="manager")
-    op.drop_table("audit_logs", schema="manager")
-    op.drop_table("users", schema="manager")
+    op.execute("DROP TABLE IF EXISTS manager.email_verifications CASCADE")
+    op.execute("DROP TABLE IF EXISTS manager.login_history CASCADE")
+    op.execute("DROP TABLE IF EXISTS manager.audit_logs CASCADE")
+    op.execute("DROP TABLE IF EXISTS manager.users CASCADE")
     op.execute("DROP TYPE IF EXISTS manager.auth_provider")
     op.execute("DROP TYPE IF EXISTS manager.user_role")
 
