@@ -10,7 +10,7 @@ os.environ.setdefault("HINDSIGHT_MANAGER_JWT_SECRET", "test-secret")
 
 from hindsight_manager.main import app
 from hindsight_manager.db import get_session
-from hindsight_manager.models.user import UserRole
+# UserRole enum removed - use string literals
 
 
 def _make_admin():
@@ -18,7 +18,7 @@ def _make_admin():
     u.id = uuid.uuid4()
     u.username = "admin"
     u.display_name = "Admin"
-    u.role = UserRole.ADMIN
+    u.role = "admin"
     u.is_active = True
     u.email = "admin@test.com"
     u.auth_provider = MagicMock(value="local")
@@ -146,7 +146,7 @@ async def normal_client():
     normal_user.id = uuid.uuid4()
     normal_user.username = "normal"
     normal_user.display_name = "Normal"
-    normal_user.role = UserRole.USER
+    normal_user.role = "user"
     normal_user.is_active = True
     normal_user.email = "normal@test.com"
     normal_user.auth_provider = MagicMock(value="local")

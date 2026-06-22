@@ -9,14 +9,14 @@ from hindsight_manager.auth.dependencies import get_current_user
 from hindsight_manager.db import get_session
 from hindsight_manager.main import app
 from hindsight_manager.models.tenant import TenantStatus
-from hindsight_manager.models.user import UserRole
+# UserRole enum removed - use string literals
 
 
 TENANT_ID = "00000000-0000-0000-0000-000000000001"
 ADMIN_ID = "00000000-0000-0000-0000-0000000000a0"
 
 
-def _make_user(user_id: str, role: UserRole):
+def _make_user(user_id: str, role: str):
     u = MagicMock()
     u.id = uuid.UUID(user_id)
     u.role = role
@@ -47,7 +47,7 @@ async def client():
     app.dependency_overrides.clear()
 
 
-def _override_session_and_user(session_mock, user_role=UserRole.ADMIN):
+def _override_session_and_user(session_mock, user_role="admin"):
     async def _session_override():
         yield session_mock
     app.dependency_overrides[get_session] = _session_override
@@ -59,7 +59,7 @@ def _override_session_and_user(session_mock, user_role=UserRole.ADMIN):
 @pytest.mark.asyncio
 async def test_purge_requires_admin(client):
     mock_session = AsyncMock()
-    _override_session_and_user(mock_session, user_role=UserRole.USER)
+    _override_session_and_user(mock_session, user_role="user")
     resp = await client.post(f"/admin/api/tenants/{TENANT_ID}/purge")
     assert resp.status_code == 403
 

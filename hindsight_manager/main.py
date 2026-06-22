@@ -14,14 +14,11 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from hindsight_manager.api.admin import router as admin_router
 from hindsight_manager.api.api_keys import router as api_keys_router
 from hindsight_manager.api.auth import router as auth_router
-from hindsight_manager.api.captcha import router as captcha_router
 from hindsight_manager.api.members import router as members_router
 from hindsight_manager.api.pages import router as pages_router
-from hindsight_manager.api.password import router as password_router
 from hindsight_manager.api.proxy import router as proxy_router
 from hindsight_manager.api.tenants import router as tenants_router
 from hindsight_manager.api.task_monitor import router as task_monitor_router
-from hindsight_manager.auth.password import hash_password
 from hindsight_manager.config import Settings
 from hindsight_manager.db import init_db
 
@@ -42,24 +39,9 @@ def _run_migrations() -> None:
 
 
 async def _ensure_admin_user(engine: AsyncEngine) -> None:
-    if not settings.admin_password:
-        return
-    async with engine.connect() as conn:
-        result = await conn.execute(
-            text("SELECT id FROM manager.users WHERE username = 'admin'")
-        )
-        if result.fetchone():
-            return
-        hashed = hash_password(settings.admin_password)
-        await conn.execute(
-            text(
-                "INSERT INTO manager.users (id, username, password_hash, display_name, auth_provider, role) "
-                "VALUES ('a0000000-0000-0000-0000-000000000001', 'admin', :ph, 'Admin', 'LOCAL', 'ADMIN')"
-            ),
-            {"ph": hashed},
-        )
-        await conn.commit()
-        logger.info("Default admin user created (username=admin)")
+    """Admin user is now seeded by xinyi-platform. This function is a no-op stub kept
+    for backwards-compatibility with any deployment scripts that call it."""
+    return
 
 
 @asynccontextmanager
@@ -115,13 +97,11 @@ app.add_middleware(
 app.include_router(admin_router)
 app.include_router(pages_router)
 app.include_router(auth_router)
-app.include_router(password_router)
 app.include_router(tenants_router)
 app.include_router(members_router)
 app.include_router(api_keys_router)
 app.include_router(proxy_router)
 app.include_router(task_monitor_router)
-app.include_router(captcha_router)
 app.mount("/static", StaticFiles(directory="hindsight_manager/static"), name="static")
 
 
