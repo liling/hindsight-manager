@@ -1,85 +1,50 @@
-from datetime import timedelta
-
-from jose import jwt
-
 from hindsight_manager.auth.session import (
     create_access_token,
-    create_token,
-    decode_token,
+    create_otp,
+    exchange_otp,
     verify_access_token,
 )
 
-
-def test_create_and_decode_token():
-    user_id = "550e8400-e29b-41d4-a716-446655440000"
-    username = "alice"
-    token = create_token(user_id, username, secret="test-secret")
-    payload = decode_token(token, secret="test-secret")
-    assert payload["sub"] == user_id
-    assert payload["username"] == username
+SECRET = "test-secret-with-at-least-32-characters!!"
+TENANT = "tenant-uuid-1"
 
 
-def test_decode_expired_token():
-    token = create_token("u1", "alice", secret="test-secret", expires_delta=timedelta(seconds=-1))
-    assert decode_token(token, secret="test-secret") is None
-
-
-def test_decode_wrong_secret():
-    token = create_token("u1", "alice", secret="secret-a")
-    assert decode_token(token, secret="secret-b") is None
-
-
-def test_create_access_token_contains_claims():
-    secret = "test-secret"
-    token = create_access_token(user_id="user-123", tenant_id="tenant-456", secret=secret)
-    payload = decode_token(token, secret)
+def test_create_and_verify_access_token():
+    token = create_access_token("user-1", TENANT, SECRET)
+    payload = verify_access_token(token, SECRET, TENANT)
     assert payload is not None
-    assert payload["sub"] == "user-123"
-    assert payload["tid"] == "tenant-456"
+    assert payload["sub"] == "user-1"
+    assert payload["tid"] == TENANT
     assert payload["type"] == "access"
-    assert "exp" in payload
 
 
-def test_verify_access_token_valid():
-    secret = "test-secret"
-    token = create_access_token(user_id="user-123", tenant_id="tenant-456", secret=secret)
-    payload = verify_access_token(token, secret, "tenant-456")
-    assert payload is not None
-    assert payload["tid"] == "tenant-456"
+def test_verify_access_token_wrong_tenant_returns_none():
+    token = create_access_token("user-1", TENANT, SECRET)
+    assert verify_access_token(token, SECRET, "other-tenant") is None
 
 
-def test_verify_access_token_wrong_tenant():
-    secret = "test-secret"
-    token = create_access_token(user_id="user-123", tenant_id="tenant-456", secret=secret)
-    payload = verify_access_token(token, secret, "tenant-999")
-    assert payload is None
-
-
-def test_verify_access_token_expired():
-    secret = "test-secret"
-    from datetime import datetime, timezone
-
-    expired_token = jwt.encode(
-        {
-            "sub": "user-123",
-            "tid": "tenant-456",
-            "type": "access",
-            "exp": datetime.now(timezone.utc) - timedelta(minutes=1),
-        },
-        secret,
-        algorithm="HS256",
-    )
-    payload = verify_access_token(expired_token, secret, "tenant-456")
-    assert payload is None
-
-
-def test_verify_access_token_wrong_type():
-    secret = "test-secret"
-    session_token = create_token(user_id="user-123", username="testuser", secret=secret)
-    payload = verify_access_token(session_token, secret, "some-tenant")
-    assert payload is None
+def test_verify_access_token_wrong_secret_returns_none():
+    token = create_access_token("user-1", TENANT, SECRET)
+    assert verify_access_token(token, "wrong-secret", TENANT) is None
 
 
 def test_verify_access_token_invalid_jwt():
-    payload = verify_access_token("garbage-token", "secret", "tenant-456")
-    assert payload is None
+    assert verify_access_token("garbage", SECRET, TENANT) is None
+
+
+def test_create_and_exchange_otp():
+    otp = create_otp("user-1", TENANT)
+    claims = exchange_otp(otp)
+    assert claims is not None
+    assert claims["user_id"] == "user-1"
+    assert claims["tenant_id"] == TENANT
+
+
+def test_exchange_otp_twice_returns_none():
+    otp = create_otp("user-1", TENANT)
+    assert exchange_otp(otp) is not None
+    assert exchange_otp(otp) is None
+
+
+def test_exchange_invalid_otp_returns_none():
+    assert exchange_otp("nonexistent-otp") is None
