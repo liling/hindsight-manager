@@ -37,6 +37,8 @@ class AdminTenantResponse(BaseModel):
     member_count: int
     api_key_count: int
     owner_user_id: str | None
+    owner: str | None = None
+    owner_display_name: str | None = None
 
 
 class AdminApiKeyResponse(BaseModel):
@@ -100,6 +102,7 @@ async def list_tenants_admin(
     tenants = result.scalars().all()
 
     items = []
+    owner_ids_by_tenant: dict[str, uuid.UUID] = {}
     for t in tenants:
         mc_result = await session.execute(
             select(func.count()).select_from(TenantMember).where(TenantMember.tenant_id == t.id)
@@ -118,6 +121,8 @@ async def list_tenants_admin(
         )
         owner_row = owner_result.first()
         owner_user_id = str(owner_row[0]) if owner_row else None
+        if owner_user_id:
+            owner_ids_by_tenant[str(t.id)] = owner_row[0]
 
         items.append(AdminTenantResponse(
             id=str(t.id), name=t.name, schema_name=t.schema_name,
@@ -125,6 +130,23 @@ async def list_tenants_admin(
             member_count=member_count, api_key_count=api_key_count,
             owner_user_id=owner_user_id,
         ))
+
+    # Batch-resolve owner usernames via platform client (1 HTTP call for all tenants)
+    if owner_ids_by_tenant:
+        from contextlib import asynccontextmanager
+        from hindsight_manager.platform.client import XinyiPlatformClient
+        from hindsight_manager.platform.config import PlatformSettings
+
+        ps = PlatformSettings.from_app_settings(Settings())
+        async with XinyiPlatformClient(ps) as client:
+            users = await client.batch_get_users(list(owner_ids_by_tenant.values()))
+        user_by_id = {str(uid): info for uid, info in users.items() if info}
+        for item in items:
+            owner_id = item.owner_user_id
+            if owner_id and owner_id in user_by_id:
+                info = user_by_id[owner_id]
+                item.owner = info.get("username")
+                item.owner_display_name = info.get("display_name")
 
     return PaginatedResponse(items=items, total=total, page=page, page_size=page_size)
 
