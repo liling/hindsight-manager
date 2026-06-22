@@ -70,7 +70,34 @@ async def lifespan(app: FastAPI):
     await _ensure_admin_user(engine)
     await engine.dispose()
     init_db(settings)
+
+    # Audit outbox retry scheduler
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
+    from hindsight_manager.db import get_session
+    from hindsight_manager.platform.client import XinyiPlatformClient
+    from hindsight_manager.platform.config import PlatformSettings
+    from hindsight_manager.services.audit_outbox_service import audit_retry_once
+
+    scheduler = AsyncIOScheduler(timezone="UTC")
+
+    async def _audit_retry_job():
+        ps = PlatformSettings.from_app_settings(settings)
+        client = XinyiPlatformClient(ps)
+        try:
+            async with get_session() as session:
+                await audit_retry_once(session, client)
+        except Exception as e:
+            logger.warning("audit_retry_job failed: %s", e)
+        finally:
+            await client.aclose()
+
+    scheduler.add_job(_audit_retry_job, "interval", seconds=10,
+                      id="audit-retry", replace_existing=True)
+    scheduler.start()
+
     yield
+
+    scheduler.shutdown(wait=False)
 
 
 app = FastAPI(title="Hindsight Manager", lifespan=lifespan)

@@ -1,7 +1,7 @@
 import enum
 import uuid
 
-from sqlalchemy import Enum, PrimaryKeyConstraint, String, func
+from sqlalchemy import Enum, ForeignKey, PrimaryKeyConstraint, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from hindsight_manager.models.base import Base
@@ -18,8 +18,9 @@ class TenantMember(Base):
         PrimaryKeyConstraint("user_id", "tenant_id"),
     )
 
+    # user_id is a logical reference to xinyi.users.id (cross-schema, no FK)
     user_id: Mapped[uuid.UUID] = mapped_column(nullable=False, index=True)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(nullable=False, index=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), nullable=False, index=True)
     role: Mapped[MemberRole] = mapped_column(
         Enum(MemberRole, name="member_role", schema="manager",
              values_callable=lambda obj: [e.value for e in obj]),

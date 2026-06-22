@@ -41,5 +41,3 @@ class User(Base):
         default=UserRole.USER,
         server_default="USER",
     )
-
-    memberships: Mapped[list["TenantMember"]] = relationship(back_populates="user")
