@@ -1,189 +1,186 @@
-import html as html_lib
 import uuid
-from datetime import datetime, timezone
+from contextlib import asynccontextmanager
+from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Request, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from hindsight_manager.auth.cas import CASAuth, CASClient
-from hindsight_manager.auth.dependencies import SESSION_COOKIE, get_current_user, require_admin
-from hindsight_manager.auth.local import verify_password
-from hindsight_manager.auth.password import hash_password, validate_password_strength, PasswordStrengthError
-from hindsight_manager.auth.session import create_access_token, create_otp, create_token, exchange_otp
+from hindsight_manager.auth.dependencies import get_current_user
+from hindsight_manager.auth.session import (
+    create_access_token,
+    create_otp,
+    exchange_otp,
+)
 from hindsight_manager.config import Settings
 from hindsight_manager.crypto import decrypt_sm4
 from hindsight_manager.db import get_session
-from hindsight_manager.jinja_filters import make_templates
-from hindsight_manager.middleware.rate_limit import login_limiter, otp_limiter
 from hindsight_manager.models.api_key import ApiKey
 from hindsight_manager.models.tenant import Tenant
 from hindsight_manager.models.tenant_member import TenantMember
-from hindsight_manager.models.user import AuthProvider, User
+from hindsight_manager.platform.client import XinyiPlatformClient
+from hindsight_manager.platform.config import PlatformSettings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-templates = make_templates()
+
+def get_platform_settings() -> PlatformSettings:
+    return PlatformSettings.from_app_settings(Settings())
 
 
-class LoginRequest(BaseModel):
-    provider: str
-    username: str | None = None
-    password: str | None = None
-    ticket: str | None = None
+@asynccontextmanager
+async def get_platform_client():
+    settings = get_platform_settings()
+    client = XinyiPlatformClient(settings)
+    try:
+        yield client
+    finally:
+        await client.aclose()
 
 
-class UserResponse(BaseModel):
-    id: str
-    username: str
-    display_name: str
-    auth_provider: str
-
-
-def _user_response(user: User) -> UserResponse:
-    return UserResponse(
-        id=str(user.id),
-        username=user.username,
-        display_name=user.display_name,
-        auth_provider=user.auth_provider.value,
-    )
-
-
-def _set_session(response: Response | HTMLResponse | JSONResponse, token: str) -> None:
-    settings = Settings()
+def _set_session_cookies(response: Response, access: str, refresh: str, settings: Settings) -> None:
     response.set_cookie(
-        SESSION_COOKIE,
-        token,
-        httponly=True,
-        max_age=86400,
-        path="/",
-        samesite="lax",
-        secure=settings.session_secure,
+        "hindsight_session", access,
+        httponly=True, max_age=settings.access_token_ttl_seconds,
+        path="/", samesite="lax", secure=settings.session_secure,
+    )
+    response.set_cookie(
+        "hindsight_refresh", refresh,
+        httponly=True, max_age=settings.refresh_token_ttl_days * 86400,
+        path="/auth", samesite="lax", secure=settings.session_secure,
     )
 
 
-@router.post("/login")
-async def login(request: Request, req: LoginRequest, _rate_limit=Depends(login_limiter), session: AsyncSession = Depends(get_session)):
-    settings = Settings()
+# ---------------------------------------------------------------------------
+# OAuth2 client endpoints
+# ---------------------------------------------------------------------------
 
-    if req.provider == "local":
-        if not req.username or not req.password:
-            raise HTTPException(status_code=400, detail="username and password required")
-        result = await session.execute(select(User).where(User.username == req.username))
-        user = result.scalar_one_or_none()
-        if not user or not verify_password(req.password, user.password_hash or ""):
-            raise HTTPException(status_code=401, detail="Invalid credentials")
-        user.last_login_at = datetime.now(timezone.utc)
-        await session.commit()
-        token = create_token(str(user.id), user.username, settings.jwt_secret)
-        resp = JSONResponse(content={"token": token, "user": _user_response(user).model_dump()})
-        _set_session(resp, token)
-        return resp
-
-    if req.provider == "cas":
-        if not req.ticket:
-            raise HTTPException(status_code=400, detail="ticket required")
-        if not settings.cas_server_url or not settings.cas_service_url:
-            raise HTTPException(status_code=500, detail="CAS not configured")
-        cas_client = CASClient(settings.cas_server_url, settings.cas_service_url)
-        cas_auth = CASAuth(cas_client, settings.jwt_secret)
-        result = await cas_auth.authenticate(req.ticket)
-        if not result:
-            raise HTTPException(status_code=401, detail="CAS authentication failed")
-        username = result["username"]
-        db_result = await session.execute(select(User).where(User.username == username))
-        user = db_result.scalar_one_or_none()
-        if not user:
-            user = User(username=username, display_name=username, auth_provider=AuthProvider.CAS)
-            session.add(user)
-            await session.commit()
-            await session.refresh(user)
-        user.last_login_at = datetime.now(timezone.utc)
-        await session.commit()
-        resp = JSONResponse(content={"token": result["token"], "user": _user_response(user).model_dump()})
-        _set_session(resp, result["token"])
-        return resp
-
-    raise HTTPException(status_code=400, detail=f"Unsupported provider: {req.provider}")
-
-
-@router.post("/login/form")
-async def login_form(
+@router.get("/login-redirect")
+async def login_redirect(
     request: Request,
-    form: OAuth2PasswordRequestForm = Depends(),
-    _rate_limit=Depends(login_limiter),
-    session: AsyncSession = Depends(get_session),
+    return_to: str = Query("/"),
 ):
     settings = Settings()
-    username = form.username
-    password = form.password
+    ps = get_platform_settings()
+    state_raw = generate_oauth_state_helper()
+    signature = sign_oauth_state_helper(state_raw, settings.jwt_secret)
 
-    result = await session.execute(select(User).where(User.username == username))
-    user = result.scalar_one_or_none()
-    if not user or not verify_password(password, user.password_hash or ""):
-        return templates.TemplateResponse(
-            request, "login.html", {"error": "用户名或密码错误"},
-        )
-    user.last_login_at = datetime.now(timezone.utc)
-    await session.commit()
-    token = create_token(str(user.id), user.username, settings.jwt_secret)
-    resp = RedirectResponse(url="/dashboard", status_code=303)
-    _set_session(resp, token)
+    params = {
+        "response_type": "code",
+        "client_id": ps.oauth_client_id,
+        "redirect_uri": ps.oauth_redirect_uri,
+        "state": signature,
+        "return_to": return_to,
+    }
+    authorize_url = f"{ps.platform_url}/oauth/authorize?{urlencode(params)}"
+
+    resp = RedirectResponse(url=authorize_url, status_code=303)
+    resp.set_cookie(
+        "hm_oauth_state", signature,
+        httponly=True, max_age=600, path="/auth", samesite="lax",
+    )
     return resp
 
 
-@router.get("/cas/login")
-async def cas_login(request: Request):
+@router.get("/callback")
+async def oauth_callback(
+    request: Request,
+    code: str = Query(...),
+    state: str = Query(...),
+    return_to: str = Query("/"),
+    state_cookie: str | None = Cookie(default=None, alias="hm_oauth_state"),
+):
+    if not state_cookie or state_cookie != state:
+        raise HTTPException(status_code=400, detail="Invalid OAuth state")
+
     settings = Settings()
-    if not settings.cas_server_url or not settings.cas_service_url:
-        raise HTTPException(status_code=500, detail="CAS not configured")
-    cas_client = CASClient(settings.cas_server_url, settings.cas_service_url)
-    return RedirectResponse(url=cas_client.get_login_url())
+    ps = get_platform_settings()
+
+    async with get_platform_client() as client:
+        token_pair = await client.exchange_oauth_code(
+            code=code, redirect_uri=ps.oauth_redirect_uri,
+        )
+
+    if token_pair is None:
+        raise HTTPException(status_code=401, detail="OAuth code exchange failed")
+
+    resp = RedirectResponse(url=return_to, status_code=303)
+    _set_session_cookies(resp, token_pair["access_token"], token_pair["refresh_token"], settings)
+    resp.delete_cookie("hm_oauth_state", path="/auth")
+    return resp
 
 
-@router.get("/cas/callback")
-async def cas_callback(ticket: str, session: AsyncSession = Depends(get_session)):
+@router.post("/refresh")
+async def refresh_endpoint(
+    request: Request,
+    hindsight_refresh: str | None = Cookie(default=None),
+):
+    if not hindsight_refresh:
+        raise HTTPException(status_code=401, detail="No refresh token")
     settings = Settings()
-    cas_client = CASClient(settings.cas_server_url, settings.cas_service_url)
-    cas_auth = CASAuth(cas_client, settings.jwt_secret)
-    result = await cas_auth.authenticate(ticket)
-    if not result:
-        raise HTTPException(status_code=401, detail="CAS authentication failed")
-    username = result["username"]
-    db_result = await session.execute(select(User).where(User.username == username))
-    user = db_result.scalar_one_or_none()
-    if not user:
-        user = User(username=username, display_name=username, auth_provider=AuthProvider.CAS)
-        session.add(user)
-        await session.commit()
-        await session.refresh(user)
-    user.last_login_at = datetime.now(timezone.utc)
-    await session.commit()
-    resp = JSONResponse(content={"user": _user_response(user).model_dump()})
-    _set_session(resp, result["token"])
+
+    async with get_platform_client() as client:
+        new_pair = await client.refresh_token(hindsight_refresh)
+
+    if new_pair is None:
+        raise HTTPException(status_code=401, detail="Refresh failed")
+
+    resp = JSONResponse(content={"ok": True, "expires_in": new_pair["expires_in"]})
+    _set_session_cookies(resp, new_pair["access_token"], new_pair["refresh_token"], settings)
     return resp
 
 
 @router.post("/logout")
-async def logout():
+async def logout(
+    request: Request,
+    hindsight_refresh: str | None = Cookie(default=None),
+):
+    if hindsight_refresh:
+        async with get_platform_client() as client:
+            await client.revoke_token(hindsight_refresh)
+
     resp = JSONResponse(content={"ok": True})
-    resp.delete_cookie(SESSION_COOKIE, path="/")
+    resp.delete_cookie("hindsight_session", path="/")
+    resp.delete_cookie("hindsight_refresh", path="/auth")
     return resp
 
 
-@router.get("/me", response_model=UserResponse)
-async def me(current_user: User = Depends(get_current_user)):
-    return _user_response(current_user)
-
+# ---------------------------------------------------------------------------
+# Data-plane access token (unchanged logic, dict current_user)
+# ---------------------------------------------------------------------------
 
 class AccessTokenResponse(BaseModel):
     access_token: str
     expires_in: int
     tenant_id: str
 
+
+@router.post("/access-token", response_model=AccessTokenResponse)
+async def create_access_token_endpoint(
+    tenant_id: uuid.UUID,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    user_id = uuid.UUID(current_user["id"])
+    result = await session.execute(
+        select(TenantMember).where(
+            TenantMember.user_id == user_id,
+            TenantMember.tenant_id == tenant_id,
+        )
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=403, detail="Not a member of this tenant")
+
+    settings = Settings()
+    token = create_access_token(str(user_id), str(tenant_id), settings.jwt_secret)
+    return AccessTokenResponse(access_token=token, expires_in=900, tenant_id=str(tenant_id))
+
+
+# ---------------------------------------------------------------------------
+# Control-plane OTP flow (unchanged logic, dict current_user)
+# ---------------------------------------------------------------------------
 
 class OtpResponse(BaseModel):
     otp: str
@@ -201,68 +198,36 @@ class ExchangeOtpResponse(BaseModel):
     tenant_slug: str
 
 
-@router.post("/access-token", response_model=AccessTokenResponse)
-async def create_access_token_endpoint(
-    tenant_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
-):
-    result = await session.execute(
-        select(TenantMember).where(
-            TenantMember.user_id == current_user.id,
-            TenantMember.tenant_id == tenant_id,
-        )
-    )
-    membership = result.scalar_one_or_none()
-    if not membership:
-        raise HTTPException(status_code=403, detail="Not a member of this tenant")
-
-    settings = Settings()
-    token = create_access_token(
-        user_id=str(current_user.id),
-        tenant_id=str(tenant_id),
-        secret=settings.jwt_secret,
-    )
-    return AccessTokenResponse(
-        access_token=token,
-        expires_in=900,
-        tenant_id=str(tenant_id),
-    )
-
-
 @router.post("/otp", response_model=OtpResponse)
 async def create_otp_endpoint(
     tenant_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
+    user_id = uuid.UUID(current_user["id"])
     result = await session.execute(
         select(TenantMember).where(
-            TenantMember.user_id == current_user.id,
+            TenantMember.user_id == user_id,
             TenantMember.tenant_id == tenant_id,
         )
     )
-    if not result.scalar_one_or_none():
+    if result.scalar_one_or_none() is None:
         raise HTTPException(status_code=403, detail="Not a member of this tenant")
 
-    otp = create_otp(str(current_user.id), str(tenant_id))
+    otp = create_otp(str(user_id), str(tenant_id))
     settings = Settings()
 
     tenant_result = await session.execute(select(Tenant).where(Tenant.id == tenant_id))
     tenant = tenant_result.scalar_one_or_none()
     slug = tenant.schema_name if tenant else str(tenant_id)
-
     redirect_url = f"{settings.cp_url_for_tenant(slug)}/"
 
     return OtpResponse(otp=otp, expires_in=60, redirect_url=redirect_url)
 
 
 @router.get("/otp/redirect", response_class=HTMLResponse)
-async def otp_redirect_form(
-    otp: str,
-    cp_url: str,
-):
-    """Render an auto-submitting POST form to securely send OTP to control plane."""
+async def otp_redirect_form(otp: str, cp_url: str):
+    import html as html_lib
     escaped_otp = html_lib.escape(otp)
     escaped_url = html_lib.escape(cp_url)
     content = f"""<!DOCTYPE html>
@@ -281,7 +246,6 @@ async def otp_redirect_form(
 async def exchange_otp_endpoint(
     request: Request,
     req: ExchangeOtpRequest,
-    _rate_limit=Depends(otp_limiter),
     session: AsyncSession = Depends(get_session),
 ):
     claims = exchange_otp(req.otp)
@@ -310,11 +274,7 @@ async def exchange_otp_endpoint(
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
 
-    jwt_token = create_access_token(
-        user_id=user_id,
-        tenant_id=tenant_id,
-        secret=settings.jwt_secret,
-    )
+    jwt_token = create_access_token(user_id, tenant_id, settings.jwt_secret)
 
     return ExchangeOtpResponse(
         jwt=jwt_token,
@@ -323,47 +283,12 @@ async def exchange_otp_endpoint(
     )
 
 
-class CreateUserRequest(BaseModel):
-    username: str
-    password: str
-    email: str | None = None
-    display_name: str
-    auth_provider: str = "local"
+# Helper wrappers (avoid circular import with auth.oauth_state)
+def generate_oauth_state_helper() -> str:
+    from hindsight_manager.auth.oauth_state import generate_oauth_state
+    return generate_oauth_state()
 
 
-@router.post("/users", response_model=UserResponse)
-async def create_user(
-    req: CreateUserRequest,
-    current_user: User = Depends(require_admin),
-    session: AsyncSession = Depends(get_session),
-):
-    """Create a new user (admin only)."""
-
-    # Check if username already exists
-    result = await session.execute(select(User).where(User.username == req.username))
-    if result.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Username already exists")
-
-    # Validate password strength
-    try:
-        validate_password_strength(req.password)
-    except PasswordStrengthError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    # Validate auth provider
-    if req.auth_provider not in ["local", "cas"]:
-        raise HTTPException(status_code=400, detail="Invalid auth provider")
-
-    # Create user
-    user = User(
-        username=req.username,
-        password_hash=hash_password(req.password) if req.auth_provider == "local" else None,
-        email=req.email,
-        display_name=req.display_name,
-        auth_provider=AuthProvider.LOCAL if req.auth_provider == "local" else AuthProvider.CAS,
-    )
-    session.add(user)
-    await session.commit()
-    await session.refresh(user)
-
-    return _user_response(user)
+def sign_oauth_state_helper(state: str, secret: str) -> str:
+    from hindsight_manager.auth.oauth_state import sign_oauth_state
+    return sign_oauth_state(state, secret)

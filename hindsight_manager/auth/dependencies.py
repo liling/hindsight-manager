@@ -1,53 +1,73 @@
-from fastapi import Cookie, Depends, Header, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
 
-from hindsight_manager.auth.session import decode_token
+from fastapi import Cookie, Depends, Header, HTTPException, Request, status
+from jose import JWTError
+
+from hindsight_manager.auth.session import decode_access_token
 from hindsight_manager.config import Settings
-from hindsight_manager.db import get_session
-from hindsight_manager.models.user import User, UserRole
 
 SESSION_COOKIE = "hindsight_session"
+SELF_AUDIENCE = "hm-prod"
+
+
+def _get_settings() -> Settings:
+    return Settings()
+
+
+def _extract_token(cookie_token: Optional[str], authorization: Optional[str]) -> Optional[str]:
+    if cookie_token:
+        return cookie_token
+    if authorization and authorization.startswith("Bearer "):
+        return authorization[7:]
+    return None
 
 
 async def get_current_user(
-    session: AsyncSession = Depends(get_session),
-    token: str | None = Cookie(default=None, alias=SESSION_COOKIE),
-    authorization: str | None = Header(default=None),
-) -> User:
-    # Try cookie first, then Authorization header
-    auth_token = token
-    if not auth_token and authorization:
-        if authorization.startswith("Bearer "):
-            auth_token = authorization[7:]
+    request: Request,
+    hindsight_session: Optional[str] = Cookie(default=None, alias=SESSION_COOKIE),
+    authorization: Optional[str] = Header(default=None),
+    settings: Settings = Depends(_get_settings),
+) -> dict:
+    token = _extract_token(hindsight_session, authorization)
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"Location": "/auth/login-redirect"},
+        )
+    try:
+        payload = decode_access_token(
+            token, settings.jwt_secret, audience=SELF_AUDIENCE,
+        )
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired session",
+            headers={"Location": "/auth/login-redirect"},
+        )
+    if payload.get("type") != "access":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
 
-    if not auth_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
-
-    settings = Settings()
-    payload = decode_token(auth_token, settings.jwt_secret)
-    if not payload:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired session")
-
-    result = await session.execute(select(User).where(User.username == payload["username"]))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-    return user
+    return {
+        "id": payload["sub"],
+        "username": payload["username"],
+        "role": payload["role"],
+    }
 
 
 async def get_current_user_or_none(
-    session: AsyncSession = Depends(get_session),
-    token: str | None = Cookie(default=None, alias=SESSION_COOKIE),
-    authorization: str | None = Header(default=None),
-) -> User | None:
+    request: Request,
+    hindsight_session: Optional[str] = Cookie(default=None, alias=SESSION_COOKIE),
+    authorization: Optional[str] = Header(default=None),
+    settings: Settings = Depends(_get_settings),
+) -> dict | None:
     try:
-        return await get_current_user(session, token, authorization)
+        return await get_current_user(request, hindsight_session, authorization, settings)
     except HTTPException:
         return None
 
 
-async def require_admin(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="需要管理员权限")
-    return current_user
+async def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    if user["role"] != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
+    return user

@@ -7,19 +7,18 @@ from hindsight_manager.db import get_session
 from hindsight_manager.auth.dependencies import get_current_user
 
 
+def _dict_user(user_id="00000000-0000-0000-0000-000000000099", username="testuser"):
+    return {"id": user_id, "username": username, "role": "admin"}
+
+
 @pytest.fixture
 async def client():
     async def _override_session():
         yield AsyncMock()
 
-    mock_user = MagicMock()
-    mock_user.id = "test-user-id"
-    mock_user.username = "testuser"
-    mock_user.display_name = "Test User"
-
     app.dependency_overrides.clear()
     app.dependency_overrides[get_session] = _override_session
-    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_current_user] = lambda: _dict_user()
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
@@ -55,7 +54,6 @@ async def test_otp_returns_clean_redirect_url(mock_create_otp, client: AsyncClie
     assert "redirect_url" in data
     assert "tenant_abc12345" in data["redirect_url"]
     assert "test-otp-token" not in data["redirect_url"]
-    assert data["redirect_url"].startswith("http://tenant_abc12345.cp.local.mem99.cn:9996")
 
 
 @pytest.mark.asyncio

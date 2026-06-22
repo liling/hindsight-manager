@@ -1,7 +1,7 @@
 import enum
 import uuid
 
-from sqlalchemy import Enum, ForeignKey, PrimaryKeyConstraint
+from sqlalchemy import Enum, ForeignKey, PrimaryKeyConstraint, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from hindsight_manager.models.base import Base
@@ -18,12 +18,16 @@ class TenantMember(Base):
         PrimaryKeyConstraint("user_id", "tenant_id"),
     )
 
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    # user_id is a logical reference to xinyi.users.id (cross-schema, no FK)
+    user_id: Mapped[uuid.UUID] = mapped_column(nullable=False, index=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), nullable=False, index=True)
     role: Mapped[MemberRole] = mapped_column(
-        Enum(MemberRole, name="member_role", schema="manager"), nullable=False, default=MemberRole.MEMBER
+        Enum(MemberRole, name="member_role", schema="manager",
+             values_callable=lambda obj: [e.value for e in obj]),
+        nullable=False,
+        default=MemberRole.MEMBER,
+        server_default="member",
     )
-    created_at: Mapped[str] = mapped_column(server_default="now()")
+    created_at: Mapped[str] = mapped_column(server_default=func.now())
 
-    user: Mapped["User"] = relationship(back_populates="memberships")
     tenant: Mapped["Tenant"] = relationship(back_populates="members")

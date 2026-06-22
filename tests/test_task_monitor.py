@@ -10,19 +10,11 @@ os.environ.setdefault("HINDSIGHT_MANAGER_JWT_SECRET", "test-secret")
 
 from hindsight_manager.main import app
 from hindsight_manager.db import get_session
-from hindsight_manager.models.user import UserRole
+# UserRole enum removed - use string literals
 
 
 def _make_admin():
-    u = MagicMock()
-    u.id = uuid.uuid4()
-    u.username = "admin"
-    u.display_name = "Admin"
-    u.role = UserRole.ADMIN
-    u.is_active = True
-    u.email = "admin@test.com"
-    u.auth_provider = MagicMock(value="local")
-    return u
+    return {"id": str(uuid.uuid4()), "username": "admin", "role": "admin", "display_name": "Admin"}
 
 
 @pytest.fixture
@@ -142,14 +134,7 @@ async def test_task_details_returns_paginated_items(admin_client):
 
 @pytest.fixture
 async def normal_client():
-    normal_user = MagicMock()
-    normal_user.id = uuid.uuid4()
-    normal_user.username = "normal"
-    normal_user.display_name = "Normal"
-    normal_user.role = UserRole.USER
-    normal_user.is_active = True
-    normal_user.email = "normal@test.com"
-    normal_user.auth_provider = MagicMock(value="local")
+    normal_user = {"id": str(uuid.uuid4()), "username": "normal", "role": "user", "display_name": "Normal"}
 
     mock_session = AsyncMock()
 

@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
@@ -10,14 +12,13 @@ from hindsight_manager.jinja_filters import make_templates
 from hindsight_manager.models.api_key import ApiKey
 from hindsight_manager.models.tenant import Tenant
 from hindsight_manager.models.tenant_member import TenantMember
-from hindsight_manager.models.user import User
 
 router = APIRouter(tags=["pages"])
 templates = make_templates()
 
 
 @router.get("/", response_class=HTMLResponse)
-async def root(request: Request, user: User | None = Depends(get_current_user_or_none)):
+async def root(request: Request, user: dict | None = Depends(get_current_user_or_none)):
     if user:
         return RedirectResponse(url="/dashboard", status_code=302)
     return RedirectResponse(url="/login", status_code=302)
@@ -27,23 +28,42 @@ async def root(request: Request, user: User | None = Depends(get_current_user_or
 async def login_page(
     request: Request,
     error: str = "",
-    user: User | None = Depends(get_current_user_or_none),
+    user: dict | None = Depends(get_current_user_or_none),
 ):
-    if user:
-        return RedirectResponse(url="/dashboard", status_code=302)
-    return templates.TemplateResponse(request, "login.html", {"error": error})
+    # Login is now handled by xinyi-platform. Redirect to the platform's
+    # OAuth2 authorize endpoint (this endpoint should rarely be hit since
+    # unauthenticated HM requests redirect to /auth/login-redirect).
+    from fastapi.responses import RedirectResponse
+    from hindsight_manager.config import Settings
+    from urllib.parse import urlencode
+    from hindsight_manager.auth.oauth_state import generate_oauth_state, sign_oauth_state
+
+    settings = Settings()
+    state = generate_oauth_state()
+    sig = sign_oauth_state(state, settings.jwt_secret)
+    params = {
+        "response_type": "code",
+        "client_id": settings.oauth_client_id,
+        "redirect_uri": settings.oauth_redirect_uri,
+        "state": sig,
+        "return_to": "/dashboard",
+    }
+    url = f"{settings.platform_url}/oauth/authorize?{urlencode(params)}"
+    resp = RedirectResponse(url=url, status_code=303)
+    resp.set_cookie("hm_oauth_state", sig, httponly=True, max_age=600, path="/auth", samesite="lax")
+    return resp
 
 
 @router.api_route("/dashboard", methods=["GET", "POST"], response_class=HTMLResponse)
 async def dashboard_page(
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     result = await session.execute(
         select(Tenant, TenantMember.role)
         .join(TenantMember, Tenant.id == TenantMember.tenant_id)
-        .where(TenantMember.user_id == current_user.id, Tenant.status == "active")
+        .where(TenantMember.user_id == uuid.UUID(current_user["id"]), Tenant.status == "active")
     )
     tenants = [
         {
@@ -65,7 +85,7 @@ async def change_password_page(
     request: Request,
     error: str = "",
     message: str = "",
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
 ):
     return templates.TemplateResponse(
         request, "password/change.html",
@@ -102,14 +122,14 @@ async def reset_password_page(
 @router.get("/api-keys", response_class=HTMLResponse)
 async def api_keys_page(
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     result = await session.execute(
         select(Tenant, TenantMember.role, ApiKey)
         .join(TenantMember, Tenant.id == TenantMember.tenant_id)
         .join(ApiKey, ApiKey.tenant_id == Tenant.id)
-        .where(TenantMember.user_id == current_user.id)
+        .where(TenantMember.user_id == uuid.UUID(current_user["id"]))
     )
     api_keys = [
         {
@@ -133,7 +153,7 @@ async def api_keys_page(
 @router.get("/profile", response_class=HTMLResponse)
 async def profile_page(
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
 ):
     return templates.TemplateResponse(
         request, "profile.html",
@@ -144,7 +164,7 @@ async def profile_page(
 @router.get("/admin/users", response_class=HTMLResponse)
 async def admin_users_page(
     request: Request,
-    current_user: User = Depends(require_admin),
+    current_user: dict = Depends(require_admin),
 ):
     return templates.TemplateResponse(request, "admin_users.html", {"user": current_user, "nav_active": "users"})
 
@@ -152,7 +172,7 @@ async def admin_users_page(
 @router.get("/admin/tenants", response_class=HTMLResponse)
 async def admin_tenants_page(
     request: Request,
-    current_user: User = Depends(require_admin),
+    current_user: dict = Depends(require_admin),
 ):
     return templates.TemplateResponse(request, "admin_tenants.html", {"user": current_user, "nav_active": "tenants"})
 
@@ -160,7 +180,7 @@ async def admin_tenants_page(
 @router.get("/admin/api-keys", response_class=HTMLResponse)
 async def admin_api_keys_page(
     request: Request,
-    current_user: User = Depends(require_admin),
+    current_user: dict = Depends(require_admin),
 ):
     return templates.TemplateResponse(request, "admin_api_keys.html", {"user": current_user, "nav_active": "api_keys"})
 
@@ -168,7 +188,7 @@ async def admin_api_keys_page(
 @router.get("/admin/audit-logs", response_class=HTMLResponse)
 async def admin_audit_logs_page(
     request: Request,
-    current_user: User = Depends(require_admin),
+    current_user: dict = Depends(require_admin),
 ):
     return templates.TemplateResponse(request, "admin_audit_logs.html", {"user": current_user, "nav_active": "audit_logs"})
 
@@ -176,6 +196,6 @@ async def admin_audit_logs_page(
 @router.get("/admin/task-monitor", response_class=HTMLResponse)
 async def admin_task_monitor_page(
     request: Request,
-    current_user: User = Depends(require_admin),
+    current_user: dict = Depends(require_admin),
 ):
     return templates.TemplateResponse(request, "admin_task_monitor.html", {"user": current_user, "nav_active": "task_monitor"})

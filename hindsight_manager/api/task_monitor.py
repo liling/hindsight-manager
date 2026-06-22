@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from hindsight_manager.auth.dependencies import require_admin
 from hindsight_manager.db import get_session
 from hindsight_manager.models.tenant import Tenant, TenantStatus
-from hindsight_manager.models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +73,7 @@ async def _query_tenant_stats(session: AsyncSession, schema_name: str) -> dict[s
 
 @router.get("/task-stats")
 async def get_task_stats(
-    current_user: User = Depends(require_admin),
+    current_user: dict = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
     result = await session.execute(
@@ -145,7 +144,7 @@ async def get_task_details(
     operation_type: str | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    current_user: User = Depends(require_admin),
+    current_user: dict = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
     if tenant_id:

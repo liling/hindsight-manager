@@ -8,7 +8,6 @@ from hindsight_manager.auth.dependencies import get_current_user
 from hindsight_manager.db import get_session
 from hindsight_manager.models.tenant import Tenant, TenantStatus
 from hindsight_manager.models.tenant_member import MemberRole
-from hindsight_manager.models.user import User
 from hindsight_manager.services import tenant_service
 from hindsight_manager.services.membership import require_membership
 
@@ -56,17 +55,17 @@ def _tenant_response(t: Tenant) -> TenantResponse:
 
 @router.get("", response_model=list[TenantResponse])
 async def list_tenants(
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    tenants = await tenant_service.list_tenants_for_user(session, current_user.id)
+    tenants = await tenant_service.list_tenants_for_user(session, uuid.UUID(current_user["id"]))
     return [_tenant_response(t) for t in tenants]
 
 
 @router.post("", response_model=TenantResponse, status_code=201)
 async def create_tenant(
     req: TenantCreateRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     tenant = await tenant_service.create_tenant(session, current_user, req.name)
@@ -76,7 +75,7 @@ async def create_tenant(
 @router.get("/{tenant_id}", response_model=TenantResponse)
 async def get_tenant(
     tenant_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     # require_membership 已 join 出 tenant，直接复用——避免二次查询
@@ -88,7 +87,7 @@ async def get_tenant(
 async def update_tenant_config(
     tenant_id: uuid.UUID,
     req: TenantConfigUpdateRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     _, tenant = await require_membership(session, current_user, tenant_id, require_owner=True)
@@ -102,7 +101,7 @@ async def update_tenant_config(
 @router.delete("/{tenant_id}", status_code=204)
 async def delete_tenant(
     tenant_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     _, tenant = await require_membership(session, current_user, tenant_id, require_owner=True)

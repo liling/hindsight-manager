@@ -11,7 +11,6 @@ from hindsight_manager.crypto import encrypt_sm4
 from hindsight_manager.models.api_key import ApiKey
 from hindsight_manager.models.tenant import Tenant, TenantStatus
 from hindsight_manager.models.tenant_member import MemberRole, TenantMember
-from hindsight_manager.models.user import User
 from hindsight_manager.services.api_key_service import generate_raw_key
 
 SYSTEM_KEY_NAME = "system-proxy-key"
@@ -37,16 +36,17 @@ async def list_tenants_for_user(
 
 async def create_tenant(
     session: AsyncSession,
-    owner: User,
+    owner: dict,
     name: str,
 ) -> Tenant:
     """Atomically create tenant + owner membership + encrypted system API key."""
+    owner_id = uuid.UUID(owner["id"])
     schema_name = f"tenant_{uuid.uuid4().hex[:8]}"
     tenant = Tenant(name=name, schema_name=schema_name, status=TenantStatus.ACTIVE)
     session.add(tenant)
     await session.flush()
 
-    membership = TenantMember(user_id=owner.id, tenant_id=tenant.id, role=MemberRole.OWNER)
+    membership = TenantMember(user_id=owner_id, tenant_id=tenant.id, role=MemberRole.OWNER)
     session.add(membership)
 
     raw_key, key_hash = generate_raw_key()

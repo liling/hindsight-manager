@@ -9,18 +9,15 @@ from hindsight_manager.auth.dependencies import get_current_user
 from hindsight_manager.db import get_session
 from hindsight_manager.main import app
 from hindsight_manager.models.tenant import TenantStatus
-from hindsight_manager.models.user import UserRole
+# UserRole enum removed - use string literals
 
 
 TENANT_ID = "00000000-0000-0000-0000-000000000001"
 ADMIN_ID = "00000000-0000-0000-0000-0000000000a0"
 
 
-def _make_user(user_id: str, role: UserRole):
-    u = MagicMock()
-    u.id = uuid.UUID(user_id)
-    u.role = role
-    return u
+def _make_user(user_id: str, role: str):
+    return {"id": user_id, "username": "admin", "role": role}
 
 
 def _make_tenant(status: TenantStatus, schema_name: str = "tenant_abc12345"):
@@ -47,7 +44,7 @@ async def client():
     app.dependency_overrides.clear()
 
 
-def _override_session_and_user(session_mock, user_role=UserRole.ADMIN):
+def _override_session_and_user(session_mock, user_role="admin"):
     async def _session_override():
         yield session_mock
     app.dependency_overrides[get_session] = _session_override
@@ -59,7 +56,7 @@ def _override_session_and_user(session_mock, user_role=UserRole.ADMIN):
 @pytest.mark.asyncio
 async def test_purge_requires_admin(client):
     mock_session = AsyncMock()
-    _override_session_and_user(mock_session, user_role=UserRole.USER)
+    _override_session_and_user(mock_session, user_role="user")
     resp = await client.post(f"/admin/api/tenants/{TENANT_ID}/purge")
     assert resp.status_code == 403
 
@@ -187,11 +184,12 @@ async def test_purge_writes_audit_log(client):
 
     await client.post(f"/admin/api/tenants/{TENANT_ID}/purge")
 
-    # 验证 audit_log 通过 session.add 写入
+    # 验证 audit_outbox 通过 session.add 写入(Plan B 之后,audit 不再写 AuditLog,
+    # 而是入队到 audit_outbox,由后台 task 转发到 platform)
     added = [c.args[0] for c in mock_session.add.call_args_list]
-    audit_entries = [a for a in added if getattr(a, "action", None) == "tenant.purge"]
-    assert len(audit_entries) == 1
-    entry = audit_entries[0]
+    outbox_entries = [a for a in added if getattr(a, "action", None) == "hm.tenant.purge"]
+    assert len(outbox_entries) == 1
+    entry = outbox_entries[0]
     assert entry.resource_type == "tenant"
     assert entry.resource_id == TENANT_ID
     assert entry.detail["schema_name"] == "tenant_abc12345"
