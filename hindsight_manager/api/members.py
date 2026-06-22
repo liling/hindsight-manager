@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from hindsight_manager.auth.dependencies import get_current_user
 from hindsight_manager.db import get_session
 from hindsight_manager.models.tenant_member import MemberRole
-from hindsight_manager.models.user import User
 from hindsight_manager.services import member_service
 from hindsight_manager.services.membership import require_membership, require_owner
 
@@ -40,7 +39,7 @@ class MemberLookupResponse(BaseModel):
 @router.get("/members", response_model=list[MemberResponse])
 async def list_members(
     tenant_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     await require_membership(session, current_user, tenant_id)
@@ -52,7 +51,7 @@ async def list_members(
 async def lookup_member(
     tenant_id: uuid.UUID,
     username: str,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     await require_owner(session, current_user, tenant_id)
@@ -71,7 +70,7 @@ async def lookup_member(
 async def add_member(
     tenant_id: uuid.UUID,
     req: AddMemberRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     await require_owner(session, current_user, tenant_id)
@@ -84,7 +83,7 @@ async def add_member(
 async def remove_member(
     tenant_id: uuid.UUID,
     user_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     await require_owner(session, current_user, tenant_id)
@@ -96,7 +95,7 @@ async def update_member_role(
     tenant_id: uuid.UUID,
     user_id: uuid.UUID,
     req: UpdateRoleRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     await require_owner(session, current_user, tenant_id)

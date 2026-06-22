@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from hindsight_manager.auth.dependencies import get_current_user
 from hindsight_manager.db import get_session
 from hindsight_manager.models.api_key import ApiKey
-from hindsight_manager.models.user import User
 from hindsight_manager.services import api_key_service
 from hindsight_manager.services.membership import require_owner
 
@@ -56,7 +55,7 @@ def _api_key_response(k: ApiKey) -> ApiKeyResponse:
 async def create_api_key(
     tenant_id: uuid.UUID,
     req: CreateApiKeyRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     await require_owner(session, current_user, tenant_id)
@@ -70,7 +69,7 @@ async def create_api_key(
 @router.get("/api-keys", response_model=list[ApiKeyResponse])
 async def list_api_keys(
     tenant_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     await require_owner(session, current_user, tenant_id)
@@ -82,7 +81,7 @@ async def list_api_keys(
 async def revoke_api_key(
     tenant_id: uuid.UUID,
     key_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     await require_owner(session, current_user, tenant_id)
@@ -95,7 +94,7 @@ async def update_api_key(
     tenant_id: uuid.UUID,
     key_id: uuid.UUID,
     req: UpdateApiKeyRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     await require_owner(session, current_user, tenant_id)

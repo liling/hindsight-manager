@@ -8,12 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from hindsight_manager.models.tenant import Tenant
 from hindsight_manager.models.tenant_member import MemberRole, TenantMember
-from hindsight_manager.models.user import User
 
 
 async def require_membership(
     session: AsyncSession,
-    user: User,
+    user: dict,
     tenant_id: uuid.UUID,
     require_owner: bool = False,
 ) -> tuple[TenantMember, Tenant]:
@@ -23,10 +22,11 @@ async def require_membership(
         HTTPException 404: user is not a member of the tenant.
         HTTPException 403: require_owner=True and user is not OWNER.
     """
+    user_id = uuid.UUID(user["id"])
     result = await session.execute(
         select(TenantMember, Tenant)
         .join(Tenant, TenantMember.tenant_id == Tenant.id)
-        .where(TenantMember.user_id == user.id, TenantMember.tenant_id == tenant_id)
+        .where(TenantMember.user_id == user_id, TenantMember.tenant_id == tenant_id)
     )
     row = result.one_or_none()
     if not row:
@@ -39,7 +39,7 @@ async def require_membership(
 
 async def require_owner(
     session: AsyncSession,
-    user: User,
+    user: dict,
     tenant_id: uuid.UUID,
 ) -> Tenant:
     """Convenience wrapper returning only the tenant (callers usually
