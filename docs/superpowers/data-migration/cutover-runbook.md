@@ -51,17 +51,28 @@ T+??:  Stop new HM image
 
 ## Phase 5 (T+2 weeks)
 
-After 2 weeks of stable operation, run migration 007 to drop legacy `manager.users` etc.:
+After 2 weeks of stable operation, run migration 007 to **rename** legacy
+`manager.users` / `audit_logs` / `login_history` / `email_verifications` tables:
 
 ```
 docker-compose run --rm hindsight-manager alembic upgrade 007
 ```
 
+007 appends `_deprecated` suffix to each table (no data loss). Keep these
+around as long as desired — they cost only disk space and don't conflict
+with running code (HM no longer references them).
+
+Restoring state: `alembic downgrade 007` (renames `users_deprecated` back to `users`).
+
 Pre-flight for Phase 5:
 - [ ] Confirm no business endpoint queries `manager.users` directly (should be zero after Plan B refactor)
 - [ ] Confirm `manager.audit_logs`/`login_history`/`email_verifications` empty (they should have been drained into xinyi.*)
-- [ ] Backup once more before dropping
+- [ ] Backup once more before renaming
 
 Post-Phase-5 state:
-- `manager` schema contains only: `tenants`, `tenant_members`, `api_keys`, `audit_outbox`
+- `manager` schema contains only: `tenants`, `tenant_members`, `api_keys`, `audit_outbox`, plus `*_deprecated` tables
 - `xinyi` schema is the source of truth for users/audit/auth
+
+If you later want to physically DROP the `*_deprecated` tables (after long-term
+confidence), it's a manual DBA operation — no tooling here on purpose, to prevent
+accidental data loss.
