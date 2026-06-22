@@ -1,15 +1,20 @@
-"""drop infra tables (Phase 5)
+"""rename infra tables (Phase 5 prep)
 
 Revision ID: 007
 Revises: 006
 Create Date: 2026-06-22
 
-WARNING: Only run after Plan B is stable for 1-2 weeks and data has been verified
-in xinyi.* schemas. This drops manager.users/audit_logs/login_history/email_verifications
-and the tenant_members FK constraint.
+DEPRECATED APPROACH: drop tables with CASCADE.
 
-All DDL uses IF EXISTS so the migration is idempotent and safe to run repeatedly
-even if some tables were never created. DO block ensures the FK drop is also idempotent.
+NEW APPROACH: RENAME to *_deprecated suffix so:
+- DBA / vendor teams have 1-2 weeks to verify xinyi.* data before final drop
+- Easy rollback via single RENAME
+- No data loss in migration window
+
+The actual DROP of deprecated tables is a separate Phase 6 migration (008),
+which is only run manually after explicit confirmation.
+
+Idempotent: uses IF EXISTS + catches errors.
 """
 from typing import Sequence, Union
 
@@ -24,19 +29,41 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Drop FK constraint on tenant_members.user_id (if it still exists)
     op.execute("""
         DO $$ BEGIN
             ALTER TABLE manager.tenant_members DROP CONSTRAINT IF EXISTS tenant_members_user_id_fkey;
         EXCEPTION WHEN OTHERS THEN null;
         END $$;
     """)
-    op.execute("DROP TABLE IF EXISTS manager.email_verifications CASCADE")
-    op.execute("DROP TABLE IF EXISTS manager.login_history CASCADE")
-    op.execute("DROP TABLE IF EXISTS manager.audit_logs CASCADE")
-    op.execute("DROP TABLE IF EXISTS manager.users CASCADE")
-    op.execute("DROP TYPE IF EXISTS manager.auth_provider")
-    op.execute("DROP TYPE IF EXISTS manager.user_role")
+
+    # Rename tables instead of dropping. Each RENAME is idempotent via IF EXISTS.
+    # _deprecated suffix leaves the data accessible for verification / rollback.
+    for table in ["email_verifications", "login_history", "audit_logs", "users"]:
+        op.execute(f"""
+            DO $$ BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.tables
+                    WHERE table_schema = 'manager' AND table_name = '{table}'
+                ) THEN
+                    ALTER TABLE manager.{table} RENAME TO {table}_deprecated;
+                END IF;
+            EXCEPTION WHEN OTHERS THEN null;
+            END $$;
+        """)
 
 
 def downgrade() -> None:
-    pass
+    # Reverse: rename back to original names. Idempotent.
+    for table in ["email_verifications", "login_history", "audit_logs", "users"]:
+        op.execute(f"""
+            DO $$ BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.tables
+                    WHERE table_schema = 'manager' AND table_name = '{table}_deprecated'
+                ) THEN
+                    ALTER TABLE manager.{table}_deprecated RENAME TO {table};
+                END IF;
+            EXCEPTION WHEN OTHERS THEN null;
+            END $$;
+        """)
