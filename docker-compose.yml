@@ -51,7 +51,9 @@ services:
       - "8888:8888"
 
   manager:
-    build: .
+    build:
+      context: ..
+      dockerfile: hindsight-manager/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy
