@@ -111,7 +111,6 @@ HM_NAV_MENU = [
         "label": "记忆库",
         "items": [
             {"id": "dashboard", "label": "记忆库", "href": "/dashboard"},
-            {"id": "profile",   "label": "个人资料", "href": "__PLATFORM_ACCOUNT__"},
         ],
     },
     {
