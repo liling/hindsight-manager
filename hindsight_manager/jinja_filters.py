@@ -3,7 +3,6 @@ from pathlib import Path
 from fastapi.templating import Jinja2Templates
 from jinja2 import ChoiceLoader, FileSystemLoader
 
-from hindsight_manager.config import Settings
 from xinyi_platform.ui_common.install import _TEMPLATE_DIR as _UI_TEMPLATE_DIR
 
 _STATIC_ROOT = Path("hindsight_manager/static")
@@ -26,6 +25,4 @@ def make_templates() -> Jinja2Templates:
         FileSystemLoader(str(_UI_TEMPLATE_DIR)),
     ])
     templates.env.filters["asset_url"] = _asset_url
-    templates.env.globals["platform_url"] = Settings().platform_url
-    templates.env.globals["brand"] = Settings().brand_name
     return templates
