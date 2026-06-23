@@ -105,37 +105,24 @@ app.add_middleware(
 from xinyi_platform.ui_common import install_ui  # noqa: E402
 
 
-class _NavSection:
-    """Thin wrapper so Jinja2 resolves ``section.items`` as the list, not dict.items()."""
-    __slots__ = ("items", "label", "type", "require_admin")
-
-    def __init__(self, *, items, label, section_type="section", require_admin=False):
-        self.items = items
-        self.label = label
-        self.type = section_type
-        self.require_admin = require_admin
-
-    def get(self, key, default=None):
-        return getattr(self, key, default)
-
 
 HM_NAV_MENU = [
-    _NavSection(
-        label="记忆库",
-        items=[
+    {
+        "label": "记忆库",
+        "items": [
             {"id": "dashboard", "label": "记忆库", "href": "/dashboard"},
             {"id": "profile",   "label": "个人资料", "href": "/profile"},
         ],
-    ),
-    _NavSection(
-        label="管理",
-        require_admin=True,
-        items=[
+    },
+    {
+        "label": "管理",
+        "require_admin": True,
+        "items": [
             {"id": "tenants",      "label": "租户管理",    "href": "/admin/tenants"},
             {"id": "api_keys",     "label": "API Key 管理", "href": "/admin/api-keys"},
             {"id": "task_monitor", "label": "任务监控",    "href": "/admin/task-monitor"},
         ],
-    ),
+    },
 ]
 
 install_ui(

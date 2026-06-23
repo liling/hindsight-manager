@@ -26,9 +26,6 @@
         <label>账号状态</label>
         <input type="text" value="{% if current_user.is_active %}正常{% else %}已禁用{% endif %}" readonly>
     </div>
-    <div class="profile-actions">
-        <a href="/password/change" class="btn btn-primary">修改密码</a>
-    </div>
 </div>
 <script src="{{ '/static/app.js' | asset_url }}"></script>
 {% endblock %}

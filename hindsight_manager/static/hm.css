@@ -5,6 +5,11 @@
  * /_ui/static/ui.css（ui_common 包），请勿在此重复定义通用 selector。
  */
 
+:root {
+    --bg-secondary: #f8f9fb;
+    --bg-hover: #f0f1f3;
+}
+
 /* ── Usage Guide ── */
 .usage-guide {
     display: flex;
@@ -205,11 +210,6 @@
     background: var(--bg);
     color: var(--text-secondary);
     font-family: var(--font);
-}
-.profile-actions {
-    margin-top: 28px;
-    padding-top: 24px;
-    border-top: 1px solid var(--border);
 }
 
 /* ── Modal ── */
