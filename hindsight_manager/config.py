@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8001
     base_url: str = "http://localhost:8001"
+    brand_name: str = "Hindsight"
     session_secure: bool = True
     cp_base_domain: str = "cp.local.mem99.cn"
     cp_port: str = "9996"

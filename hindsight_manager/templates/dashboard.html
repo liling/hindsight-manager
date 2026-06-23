@@ -1,6 +1,5 @@
 {% extends "admin_base.html" %}
-{% block title %}控制台 - Hindsight{% endblock %}
-{% set nav_active = 'dashboard' %}
+{% block title %}记忆库 - {{ brand }}{% endblock %}
 {% block main %}
 <div class="content-header">
     <h2>记忆库</h2>
@@ -46,7 +45,7 @@
             </div>
             <div class="tenant-actions">
                 <button class="btn btn-primary btn-sm" onclick="enterConsole('{{ t.id }}', '{{ t.schema_name }}')">进入控制台</button>
-                <button class="btn btn-secondary btn-sm" onclick="toggleMembers('{{ t.id }}', '{{ t.role }}', '{{ user.id }}')">成员</button>
+                <button class="btn btn-secondary btn-sm" onclick="toggleMembers('{{ t.id }}', '{{ t.role }}', '{{ current_user.id }}')">成员</button>
                 {% if t.role == 'owner' %}
                 <button class="btn btn-secondary btn-sm" onclick="toggleApiKeys('{{ t.id }}')">API Keys</button>
                 <button class="btn btn-danger btn-sm" onclick="deleteTenant('{{ t.id }}', '{{ t.name }}')">删除</button>

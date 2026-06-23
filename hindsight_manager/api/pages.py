@@ -17,6 +17,19 @@ router = APIRouter(tags=["pages"])
 templates = make_templates()
 
 
+def _ui_ctx(request: Request) -> dict:
+    """Pull ui_common state from app.state for template rendering."""
+    ui = request.app.state.ui
+    return {
+        "current_service": ui["current_service"],
+        "nav_menu": ui["nav_menu"],
+        "brand": ui["brand"],
+        "products": ui["products"],
+        "platform_url": ui["platform_url"],
+        "manager_url": ui["manager_url"],
+    }
+
+
 @router.get("/", response_class=HTMLResponse)
 async def root(request: Request, user: dict | None = Depends(get_current_user_or_none)):
     if user:
@@ -76,46 +89,14 @@ async def dashboard_page(
     ]
     return templates.TemplateResponse(
         request, "dashboard.html",
-        {"user": current_user, "tenants": tenants, "dataplane_url": Settings().dataplane_url, "docs_url": Settings().docs_url, "mcp_url": Settings().dataplane_url.rstrip("/") + "/mcp"},
-    )
-
-
-@router.get("/password/change", response_class=HTMLResponse)
-async def change_password_page(
-    request: Request,
-    error: str = "",
-    message: str = "",
-    current_user: dict = Depends(get_current_user),
-):
-    return templates.TemplateResponse(
-        request, "password/change.html",
-        {"user": current_user, "error": error, "message": message},
-    )
-
-
-@router.get("/password/forgot", response_class=HTMLResponse)
-async def forgot_password_page(
-    request: Request,
-    error: str = "",
-    message: str = "",
-):
-    return templates.TemplateResponse(
-        request, "password/reset.html",
-        {"error": error, "message": message, "show_reset_form": False},
-    )
-
-
-@router.get("/password/reset", response_class=HTMLResponse)
-async def reset_password_page(
-    request: Request,
-    email: str = "",
-    error: str = "",
-    message: str = "",
-):
-    show_reset_form = bool(email)
-    return templates.TemplateResponse(
-        request, "password/reset.html",
-        {"error": error, "message": message, "show_reset_form": show_reset_form, "email": email},
+        {
+            **_ui_ctx(request),
+            "current_user": current_user,
+            "tenants": tenants,
+            "dataplane_url": Settings().dataplane_url,
+            "docs_url": Settings().docs_url,
+            "mcp_url": Settings().dataplane_url.rstrip("/") + "/mcp",
+        },
     )
 
 
@@ -146,7 +127,11 @@ async def api_keys_page(
     ]
     return templates.TemplateResponse(
         request, "api_keys.html",
-        {"user": current_user, "api_keys": api_keys},
+        {
+            **_ui_ctx(request),
+            "current_user": current_user,
+            "api_keys": api_keys,
+        },
     )
 
 
@@ -173,16 +158,11 @@ async def profile_page(
 
     return templates.TemplateResponse(
         request, "profile.html",
-        {"user": user_info},
+        {
+            **_ui_ctx(request),
+            "current_user": user_info,
+        },
     )
-
-
-@router.get("/admin/users", response_class=HTMLResponse)
-async def admin_users_page(
-    request: Request,
-    current_user: dict = Depends(require_admin),
-):
-    return templates.TemplateResponse(request, "admin_users.html", {"user": current_user, "nav_active": "users"})
 
 
 @router.get("/admin/tenants", response_class=HTMLResponse)
@@ -190,7 +170,10 @@ async def admin_tenants_page(
     request: Request,
     current_user: dict = Depends(require_admin),
 ):
-    return templates.TemplateResponse(request, "admin_tenants.html", {"user": current_user, "nav_active": "tenants"})
+    return templates.TemplateResponse(
+        request, "admin_tenants.html",
+        {**_ui_ctx(request), "current_user": current_user},
+    )
 
 
 @router.get("/admin/api-keys", response_class=HTMLResponse)
@@ -198,15 +181,10 @@ async def admin_api_keys_page(
     request: Request,
     current_user: dict = Depends(require_admin),
 ):
-    return templates.TemplateResponse(request, "admin_api_keys.html", {"user": current_user, "nav_active": "api_keys"})
-
-
-@router.get("/admin/audit-logs", response_class=HTMLResponse)
-async def admin_audit_logs_page(
-    request: Request,
-    current_user: dict = Depends(require_admin),
-):
-    return templates.TemplateResponse(request, "admin_audit_logs.html", {"user": current_user, "nav_active": "audit_logs"})
+    return templates.TemplateResponse(
+        request, "admin_api_keys.html",
+        {**_ui_ctx(request), "current_user": current_user},
+    )
 
 
 @router.get("/admin/task-monitor", response_class=HTMLResponse)
@@ -214,4 +192,7 @@ async def admin_task_monitor_page(
     request: Request,
     current_user: dict = Depends(require_admin),
 ):
-    return templates.TemplateResponse(request, "admin_task_monitor.html", {"user": current_user, "nav_active": "task_monitor"})
+    return templates.TemplateResponse(
+        request, "admin_task_monitor.html",
+        {**_ui_ctx(request), "current_user": current_user},
+    )

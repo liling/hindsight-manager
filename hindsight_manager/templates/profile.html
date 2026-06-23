@@ -1,6 +1,5 @@
 {% extends "admin_base.html" %}
-{% block title %}个人资料 - Hindsight{% endblock %}
-{% set nav_active = 'profile' %}
+{% block title %}个人资料 - {{ brand }}{% endblock %}
 {% block main %}
 <div class="content-header">
     <h2>个人资料</h2>
@@ -9,23 +8,23 @@
 <div class="profile-card">
     <div class="profile-field">
         <label>用户名</label>
-        <input type="text" value="{{ user.username }}" readonly>
+        <input type="text" value="{{ current_user.username }}" readonly>
     </div>
     <div class="profile-field">
         <label>显示名称</label>
-        <input type="text" value="{{ user.display_name }}" readonly>
+        <input type="text" value="{{ current_user.display_name }}" readonly>
     </div>
     <div class="profile-field">
         <label>邮箱</label>
-        <input type="email" value="{{ user.email or '未设置' }}" readonly>
+        <input type="email" value="{{ current_user.email or '未设置' }}" readonly>
     </div>
     <div class="profile-field">
         <label>认证方式</label>
-        <input type="text" value="{{ user.auth_provider.value }}" readonly>
+        <input type="text" value="{{ current_user.auth_provider.value }}" readonly>
     </div>
     <div class="profile-field">
         <label>账号状态</label>
-        <input type="text" value="{% if user.is_active %}正常{% else %}已禁用{% endif %}" readonly>
+        <input type="text" value="{% if current_user.is_active %}正常{% else %}已禁用{% endif %}" readonly>
     </div>
     <div class="profile-actions">
         <a href="/password/change" class="btn btn-primary">修改密码</a>
