@@ -137,11 +137,18 @@ async def logout(
     request: Request,
     hindsight_refresh: str | None = Cookie(default=None),
 ):
-    if hindsight_refresh:
-        async with get_platform_client() as client:
-            await client.revoke_token(hindsight_refresh)
+    settings = Settings()
 
-    resp = JSONResponse(content={"ok": True})
+    async with get_platform_client() as client:
+        if hindsight_refresh:
+            # Revoke all refresh tokens + add TokenRevocation on the platform
+            await client.revoke_user_session(hindsight_refresh)
+
+    platform_logout_url = (
+        f"{settings.platform_url}/logout"
+        f"?return_to={settings.base_url}/login"
+    )
+    resp = RedirectResponse(url=platform_logout_url, status_code=303)
     resp.delete_cookie("hindsight_session", path="/")
     resp.delete_cookie("hindsight_refresh", path="/auth")
     return resp

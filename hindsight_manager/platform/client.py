@@ -83,6 +83,10 @@ class XinyiPlatformClient:
     async def revoke_token(self, raw_token: str) -> None:
         await self._post_json("/oauth/revoke", {"token": raw_token}, with_client_auth=False)
 
+    async def revoke_user_session(self, refresh_token: str) -> None:
+        """Revoke all of the user's platform sessions (by refresh_token lookup)."""
+        await self._post_json("/internal/auth/revoke", {"refresh_token": refresh_token})
+
     async def exchange_oauth_code(self, code: str, redirect_uri: str) -> dict | None:
         body = {
             "grant_type": "authorization_code",

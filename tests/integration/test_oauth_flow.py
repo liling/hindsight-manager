@@ -139,7 +139,7 @@ def test_refresh_without_cookie_returns_401():
 def test_logout_clears_cookies_and_revoke_platform_token():
     with patch("hindsight_manager.api.auth.get_platform_client") as mock_get:
         client_mock = MagicMock()
-        client_mock.revoke_token = AsyncMock()
+        client_mock.revoke_user_session = AsyncMock()
         client_mock.aclose = AsyncMock()
         mock_get.return_value.__aenter__.return_value = client_mock
 
@@ -147,9 +147,11 @@ def test_logout_clears_cookies_and_revoke_platform_token():
         response = client.post(
             "/auth/logout",
             cookies={"hindsight_session": "x", "hindsight_refresh": "y"},
+            follow_redirects=False,
         )
-    assert response.status_code == 200
-    client_mock.revoke_token.assert_awaited_once()
+    assert response.status_code == 303
+    client_mock.revoke_user_session.assert_awaited_once_with("y")
+    assert "logout" in response.headers.get("location", "")
     set_cookie = response.headers.get("set-cookie", "")
     assert "hindsight_session" in set_cookie
     assert "hindsight_refresh" in set_cookie
