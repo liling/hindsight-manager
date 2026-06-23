@@ -135,36 +135,6 @@ async def api_keys_page(
     )
 
 
-@router.get("/profile", response_class=HTMLResponse)
-async def profile_page(
-    request: Request,
-    current_user: dict = Depends(get_current_user),
-):
-    # Fetch extended user info from xinyi-platform (display_name, email, etc.)
-    from hindsight_manager.platform.client import XinyiPlatformClient
-    from hindsight_manager.platform.config import PlatformSettings
-    from contextlib import asynccontextmanager
-
-    user_info = dict(current_user)  # fallback to basic dict
-    try:
-        ps = PlatformSettings.from_app_settings(Settings())
-        async with XinyiPlatformClient(ps) as client:
-            users = await client.batch_get_users([uuid.UUID(current_user["id"])])
-        ext = users.get(uuid.UUID(current_user["id"]))
-        if ext:
-            user_info.update(ext)
-    except Exception:
-        pass  # fail gracefully, show basic info
-
-    return templates.TemplateResponse(
-        request, "profile.html",
-        {
-            **_ui_ctx(request),
-            "current_user": user_info,
-        },
-    )
-
-
 @router.get("/admin/tenants", response_class=HTMLResponse)
 async def admin_tenants_page(
     request: Request,
