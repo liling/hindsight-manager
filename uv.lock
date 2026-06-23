@@ -672,7 +672,7 @@ requires-dist = [
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.36" },
     { name = "typer", specifier = ">=0.15.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32.0" },
-    { name = "xinyi-platform", editable = "/Users/liling/src/lab/xinyi-platform" },
+    { name = "xinyi-platform", editable = "../xinyi-platform" },
 ]
 
 [package.metadata.requires-dev]
@@ -1806,7 +1806,7 @@ wheels = [
 [[package]]
 name = "xinyi-platform"
 version = "0.1.0"
-source = { editable = "/Users/liling/src/lab/xinyi-platform" }
+source = { editable = "../xinyi-platform" }
 dependencies = [
     { name = "alembic" },
     { name = "apscheduler" },

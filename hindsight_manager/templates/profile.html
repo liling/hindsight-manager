@@ -20,11 +20,11 @@
     </div>
     <div class="profile-field">
         <label>认证方式</label>
-        <input type="text" value="{{ current_user.auth_provider.value }}" readonly>
+        <input type="text" value="{{ current_user.auth_provider.value if current_user.auth_provider else '—' }}" readonly>
     </div>
     <div class="profile-field">
         <label>账号状态</label>
-        <input type="text" value="{% if current_user.is_active %}正常{% else %}已禁用{% endif %}" readonly>
+        <input type="text" value="{% if current_user.is_active %}正常{% elif current_user.is_active is none %}—{% else %}已禁用{% endif %}" readonly>
     </div>
 </div>
 <script src="{{ '/static/app.js' | asset_url }}"></script>

@@ -7,15 +7,14 @@ WORKDIR /app
 
 RUN pip install --no-cache-dir uv
 
-# Copy xinyi-platform first (HM depends on it via pyproject.toml)
-COPY xinyi-platform /opt/xinyi-platform
+# Copy xinyi-platform first (HM depends on it via pyproject.toml).
+# Only copy runtime source — tests, .git, docs are excluded.
+COPY xinyi-platform/pyproject.toml xinyi-platform/uv.lock /xinyi-platform/
+COPY xinyi-platform/xinyi_platform /xinyi-platform/xinyi_platform/
 
 # Copy HM manifests and sync deps.
-# Both pyproject.toml and uv.lock contain the host-absolute path to xinyi-platform;
-# rewrite both to /opt/xinyi-platform for the docker build.
 COPY hindsight-manager/pyproject.toml hindsight-manager/uv.lock ./
-RUN sed -i 's|/Users/liling/src/lab/xinyi-platform|/opt/xinyi-platform|g' pyproject.toml uv.lock && \
-    uv sync --frozen
+RUN uv sync --frozen
 
 COPY hindsight-manager/hindsight_manager ./hindsight_manager
 RUN uv pip install -e .
@@ -28,7 +27,7 @@ WORKDIR /app
 RUN useradd -m -s /bin/bash hindsight
 
 COPY --from=builder /app /app
-COPY --from=builder /opt/xinyi-platform /opt/xinyi-platform
+COPY --from=builder /xinyi-platform /xinyi-platform
 
 USER hindsight
 

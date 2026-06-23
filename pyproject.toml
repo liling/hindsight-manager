@@ -20,7 +20,7 @@ dependencies = [
     "jinja2>=3.1.0",
     "pillow>=10.0.0",
     "apscheduler>=3.11.2",
-    "xinyi-platform @ file:///Users/liling/src/lab/xinyi-platform",
+    "xinyi-platform",
 ]
 
 [project.scripts]
@@ -37,7 +37,7 @@ allow-direct-references = true
 packages = ["hindsight_manager"]
 
 [tool.uv.sources]
-xinyi-platform = { path = "/Users/liling/src/lab/xinyi-platform", editable = true }
+xinyi-platform = { path = "../xinyi-platform", editable = true }
 
 [dependency-groups]
 dev = ["pytest>=9.0", "pytest-asyncio>=0.24"]

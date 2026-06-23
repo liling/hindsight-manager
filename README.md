@@ -42,6 +42,18 @@ HM's `.env` must include:
 - Audit push: enqueued to local `manager.audit_outbox` table, APScheduler task retries every 10s, posts to `POST /internal/audit`
 - Revocation check: `POST /internal/auth/check-revocation` (called when access token is expired)
 
+## Build Requirements
+
+The `hindsight-manager` docker image requires the `xinyi-platform` repo to be checked out as a sibling directory:
+
+```
+lab/
+├── hindsight-manager/   ← this repo
+└── xinyi-platform/      ← required sibling
+```
+
+`docker compose build` uses the parent directory as build context to access both repos. If you clone them elsewhere, adjust the `[tool.uv.sources]` path in `pyproject.toml`.
+
 ## Development
 
 ```bash
