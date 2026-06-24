@@ -154,6 +154,19 @@ async def logout(
     return resp
 
 
+@router.get("/logout")
+async def logout_get(
+    hindsight_session: str | None = Cookie(default=None),
+    hindsight_refresh: str | None = Cookie(default=None),
+):
+    """GET handler for SLO iframe — clears cookies without revoke."""
+    from fastapi.responses import PlainTextResponse
+    resp = PlainTextResponse("logged out", status_code=200)
+    resp.delete_cookie("hindsight_session", path="/")
+    resp.delete_cookie("hindsight_refresh", path="/auth")
+    return resp
+
+
 # ---------------------------------------------------------------------------
 # Data-plane access token (unchanged logic, dict current_user)
 # ---------------------------------------------------------------------------

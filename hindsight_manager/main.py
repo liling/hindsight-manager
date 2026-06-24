@@ -5,8 +5,11 @@ from concurrent.futures import ThreadPoolExecutor
 
 from alembic import command
 from alembic.config import Config as AlembicConfig
-from fastapi import FastAPI
+from urllib.parse import quote
+
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
@@ -100,6 +103,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+async def _page_auth_redirect(request: Request, exc: HTTPException):
+    if exc.status_code == 401 and not request.url.path.startswith(
+        ("/api/", "/auth/", "/admin/api/", "/tenants/", "/health")
+    ):
+        return RedirectResponse(
+            url=f"/auth/login-redirect?return_to={quote(request.url.path)}",
+            status_code=302,
+        )
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+app.add_exception_handler(HTTPException, _page_auth_redirect)
+
 
 # Wire shared UI (templates loader, static mount, jinja globals).
 from xinyi_platform.ui_common import install_ui  # noqa: E402
