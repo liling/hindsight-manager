@@ -40,6 +40,7 @@ async def root(request: Request, user: dict | None = Depends(get_current_user_or
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(
     request: Request,
+    return_to: str = "/dashboard",
     error: str = "",
     user: dict | None = Depends(get_current_user_or_none),
 ):
@@ -59,7 +60,7 @@ async def login_page(
         "client_id": settings.oauth_client_id,
         "redirect_uri": settings.oauth_redirect_uri,
         "state": sig,
-        "return_to": "/dashboard",
+        "return_to": return_to,
     }
     url = f"{settings.platform_url}/oauth/authorize?{urlencode(params)}"
     resp = RedirectResponse(url=url, status_code=303)
