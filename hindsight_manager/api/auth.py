@@ -49,7 +49,7 @@ def _set_session_cookies(response: Response, access: str, refresh: str, settings
     response.set_cookie(
         "hindsight_refresh", refresh,
         httponly=True, max_age=settings.refresh_token_ttl_days * 86400,
-        path="/auth", samesite="lax", secure=settings.session_secure,
+        path="/", samesite="lax", secure=settings.session_secure,
     )
 
 
@@ -79,7 +79,7 @@ async def login_redirect(
     resp = RedirectResponse(url=authorize_url, status_code=303)
     resp.set_cookie(
         "hm_oauth_state", signature,
-        httponly=True, max_age=600, path="/auth", samesite="lax",
+        httponly=True, max_age=600, path="/", samesite="lax",
     )
     return resp
 
@@ -108,7 +108,7 @@ async def oauth_callback(
 
     resp = RedirectResponse(url=return_to, status_code=303)
     _set_session_cookies(resp, token_pair["access_token"], token_pair["refresh_token"], settings)
-    resp.delete_cookie("hm_oauth_state", path="/auth")
+    resp.delete_cookie("hm_oauth_state", path="/")
     return resp
 
 
@@ -150,7 +150,7 @@ async def logout(
     )
     resp = RedirectResponse(url=platform_logout_url, status_code=303)
     resp.delete_cookie("hindsight_session", path="/")
-    resp.delete_cookie("hindsight_refresh", path="/auth")
+    resp.delete_cookie("hindsight_refresh", path="/")
     return resp
 
 
@@ -163,7 +163,7 @@ async def logout_get(
     from fastapi.responses import PlainTextResponse
     resp = PlainTextResponse("logged out", status_code=200)
     resp.delete_cookie("hindsight_session", path="/")
-    resp.delete_cookie("hindsight_refresh", path="/auth")
+    resp.delete_cookie("hindsight_refresh", path="/")
     return resp
 
 
