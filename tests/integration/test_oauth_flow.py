@@ -51,13 +51,13 @@ def test_callback_exchanges_code_and_sets_cookies():
         sig = sign_oauth_state(state, s.jwt_secret)
 
         response = client.get(
-            "/auth/callback",
-            params={"code": "test-code", "state": sig, "return_to": "/dashboard"},
+            "/hindsight/auth/callback",
+            params={"code": "test-code", "state": sig, "return_to": "/hindsight/dashboard"},
             cookies={"hm_oauth_state": sig},
             follow_redirects=False,
         )
     assert response.status_code == 303
-    assert response.headers["location"] == "/dashboard"
+    assert response.headers["location"] == "/hindsight/dashboard"
     assert "hindsight_session" in response.cookies
     assert "hindsight_refresh" in response.cookies
 
@@ -65,7 +65,7 @@ def test_callback_exchanges_code_and_sets_cookies():
 def test_callback_invalid_state_returns_400():
     client = TestClient(app)
     response = client.get(
-        "/auth/callback",
+        "/hindsight/auth/callback",
         params={"code": "x", "state": "fake-sig"},
         cookies={"hm_oauth_state": "different-sig"},
         follow_redirects=False,
@@ -88,7 +88,7 @@ def test_callback_platform_returns_none_returns_401():
 
         client = TestClient(app)
         response = client.get(
-            "/auth/callback",
+            "/hindsight/auth/callback",
             params={"code": "bad", "state": sig},
             cookies={"hm_oauth_state": sig},
             follow_redirects=False,
@@ -99,8 +99,8 @@ def test_callback_platform_returns_none_returns_401():
 def test_login_redirect_302_to_platform():
     client = TestClient(app)
     response = client.get(
-        "/auth/login-redirect",
-        params={"return_to": "/admin/tenants"},
+        "/hindsight/auth/login-redirect",
+        params={"return_to": "/hindsight/admin/tenants"},
         follow_redirects=False,
     )
     assert response.status_code in (302, 303)
@@ -123,7 +123,7 @@ def test_refresh_with_valid_cookie_updates_session():
 
         client = TestClient(app)
         response = client.post(
-            "/auth/refresh",
+            "/hindsight/auth/refresh",
             cookies={"hindsight_refresh": "old-refresh"},
         )
     assert response.status_code == 200
@@ -132,7 +132,7 @@ def test_refresh_with_valid_cookie_updates_session():
 
 def test_refresh_without_cookie_returns_401():
     client = TestClient(app)
-    response = client.post("/auth/refresh")
+    response = client.post("/hindsight/auth/refresh")
     assert response.status_code == 401
 
 
@@ -145,7 +145,7 @@ def test_logout_clears_cookies_and_revoke_platform_token():
 
         client = TestClient(app)
         response = client.post(
-            "/auth/logout",
+            "/hindsight/auth/logout",
             cookies={"hindsight_session": "x", "hindsight_refresh": "y"},
             follow_redirects=False,
         )
@@ -183,7 +183,7 @@ def test_session_cookie_grants_access_to_business_endpoint():
         sig = sign_oauth_state(state, s.jwt_secret)
 
         callback_resp = client.get(
-            "/auth/callback",
+            "/hindsight/auth/callback",
             params={"code": "x", "state": sig},
             cookies={"hm_oauth_state": sig},
             follow_redirects=False,

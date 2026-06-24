@@ -60,7 +60,7 @@ def _set_session_cookies(response: Response, access: str, refresh: str, settings
 @router.get("/login-redirect")
 async def login_redirect(
     request: Request,
-    return_to: str = Query("/"),
+    return_to: str = Query("/hindsight"),
 ):
     settings = Settings()
     ps = get_platform_settings()
@@ -89,7 +89,7 @@ async def oauth_callback(
     request: Request,
     code: str = Query(...),
     state: str = Query(...),
-    return_to: str = Query("/"),
+    return_to: str = Query("/hindsight/dashboard"),
     state_cookie: str | None = Cookie(default=None, alias="hm_oauth_state"),
 ):
     if not state_cookie or state_cookie != state:
@@ -146,7 +146,7 @@ async def logout(
 
     platform_logout_url = (
         f"{settings.platform_url}/logout"
-        f"?return_to={settings.base_url}/login"
+        f"?return_to={settings.base_url}/hindsight/login"
     )
     resp = RedirectResponse(url=platform_logout_url, status_code=303)
     resp.delete_cookie("hindsight_session", path="/")

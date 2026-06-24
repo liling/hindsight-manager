@@ -30,9 +30,9 @@ async def client():
 
 @pytest.mark.asyncio
 async def test_root_redirects_to_dashboard_when_logged_in(client: AsyncClient):
-    resp = await client.get("/", follow_redirects=False)
+    resp = await client.get("/hindsight/", follow_redirects=False)
     assert resp.status_code == 302
-    assert "/dashboard" in resp.headers["location"]
+    assert "/hindsight/dashboard" in resp.headers["location"]
 
 
 @pytest.mark.asyncio
@@ -40,7 +40,7 @@ async def test_login_page_redirects_to_platform(client: AsyncClient):
     # /login now redirects to xinyi-platform's /oauth/authorize (HM no longer
     # renders a login page — login lives in the platform).
     app.dependency_overrides[get_current_user_or_none] = lambda: None
-    resp = await client.get("/login", follow_redirects=False)
+    resp = await client.get("/hindsight/login", follow_redirects=False)
     assert resp.status_code in (302, 303)
     assert "/oauth/authorize" in resp.headers["location"]
 
@@ -58,7 +58,7 @@ async def test_dashboard_page_renders(client: AsyncClient):
 
     app.dependency_overrides[get_session] = _override
 
-    resp = await client.get("/dashboard")
+    resp = await client.get("/hindsight/dashboard")
     assert resp.status_code == 200
     assert "记忆库" in resp.text
     assert "获取 MCP 配置" in resp.text
@@ -93,7 +93,7 @@ async def test_dashboard_owner_card_renders_rename_icon(client: AsyncClient):
 
     app.dependency_overrides[get_session] = _override
 
-    resp = await client.get("/dashboard")
+    resp = await client.get("/hindsight/dashboard")
     assert resp.status_code == 200
     assert 'class="tenant-edit-btn"' in resp.text
     assert 'aria-label="重命名"' in resp.text
@@ -121,6 +121,6 @@ async def test_dashboard_member_card_has_no_rename_icon(client: AsyncClient):
 
     app.dependency_overrides[get_session] = _override
 
-    resp = await client.get("/dashboard")
+    resp = await client.get("/hindsight/dashboard")
     assert resp.status_code == 200
     assert "tenant-edit-btn" not in resp.text

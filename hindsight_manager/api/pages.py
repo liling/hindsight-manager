@@ -27,20 +27,21 @@ def _ui_ctx(request: Request) -> dict:
         "products": ui["products"],
         "platform_url": ui["platform_url"],
         "manager_url": ui["manager_url"],
+        "service_prefix": ui.get("service_prefix", ""),
     }
 
 
 @router.get("/", response_class=HTMLResponse)
 async def root(request: Request, user: dict | None = Depends(get_current_user_or_none)):
     if user:
-        return RedirectResponse(url="/dashboard", status_code=302)
-    return RedirectResponse(url="/login", status_code=302)
+        return RedirectResponse(url="/hindsight/dashboard", status_code=302)
+    return RedirectResponse(url="/hindsight/login", status_code=302)
 
 
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(
     request: Request,
-    return_to: str = "/dashboard",
+    return_to: str = "/hindsight/dashboard",
     error: str = "",
     user: dict | None = Depends(get_current_user_or_none),
 ):

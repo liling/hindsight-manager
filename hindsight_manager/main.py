@@ -105,11 +105,11 @@ app.add_middleware(
 )
 
 async def _page_auth_redirect(request: Request, exc: HTTPException):
-    if exc.status_code == 401 and not request.url.path.startswith(
-        ("/api/", "/auth/", "/admin/api/", "/tenants/", "/health")
+    if exc.status_code == 401 and request.url.path.startswith("/hindsight/") and not request.url.path.startswith(
+        ("/hindsight/api/", "/hindsight/auth/", "/hindsight/health")
     ):
         return RedirectResponse(
-            url=f"/auth/login-redirect?return_to={quote(request.url.path)}",
+            url=f"/hindsight/auth/login-redirect?return_to={quote(request.url.path)}",
             status_code=302,
         )
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
@@ -126,16 +126,16 @@ HM_NAV_MENU = [
     {
         "label": "记忆库",
         "items": [
-            {"id": "dashboard", "label": "记忆库", "href": "/dashboard"},
+            {"id": "dashboard", "label": "记忆库", "href": "/hindsight/dashboard"},
         ],
     },
     {
         "label": "管理",
         "require_admin": True,
         "items": [
-            {"id": "tenants",      "label": "租户管理",    "href": "/admin/tenants"},
-            {"id": "api_keys",     "label": "API Key 管理", "href": "/admin/api-keys"},
-            {"id": "task_monitor", "label": "任务监控",    "href": "/admin/task-monitor"},
+            {"id": "tenants",      "label": "租户管理",    "href": "/hindsight/admin/tenants"},
+            {"id": "api_keys",     "label": "API Key 管理", "href": "/hindsight/admin/api-keys"},
+            {"id": "task_monitor", "label": "任务监控",    "href": "/hindsight/admin/task-monitor"},
         ],
     },
 ]
@@ -147,19 +147,20 @@ install_ui(
     brand=settings.brand_name,
     platform_url=settings.platform_url,
     manager_url=settings.base_url,
+    service_prefix="/hindsight",
 )
 
-app.include_router(admin_router)
-app.include_router(pages_router)
-app.include_router(auth_router)
-app.include_router(tenants_router)
-app.include_router(members_router)
-app.include_router(api_keys_router)
-app.include_router(proxy_router)
-app.include_router(task_monitor_router)
-app.mount("/static", StaticFiles(directory="hindsight_manager/static"), name="static")
+app.include_router(admin_router, prefix="/hindsight")
+app.include_router(pages_router, prefix="/hindsight")
+app.include_router(auth_router, prefix="/hindsight")
+app.include_router(tenants_router, prefix="/hindsight")
+app.include_router(members_router, prefix="/hindsight")
+app.include_router(api_keys_router, prefix="/hindsight")
+app.include_router(proxy_router, prefix="/hindsight")
+app.include_router(task_monitor_router, prefix="/hindsight")
+app.mount("/hindsight/static", StaticFiles(directory="hindsight_manager/static"), name="static")
 
 
-@app.get("/health")
+@app.get("/hindsight/health")
 async def health():
     return {"status": "ok"}
