@@ -1,7 +1,7 @@
 # 自动注册与服务发现设计文档
 
 **日期**: 2026-06-25
-**状态**: 设计已确认
+**状态**: 已实现
 **涉及仓库**: xinyi-platform, hindsight-manager, docupipe-manager
 
 ## 背景与动机
