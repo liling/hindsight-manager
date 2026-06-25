@@ -107,7 +107,7 @@ async def lifespan(app: FastAPI):
             registration_token=settings.registration_token,
             client_metadata={
                 "client_id": settings.oauth_client_id,
-                "name": "Hindsight Manager",
+                "name": "Hindsignt",
                 "base_url": f"{settings.base_url}/hindsight",
                 "redirect_uris": ["/auth/callback"],
                 "logout_url": "/auth/logout",
@@ -128,7 +128,7 @@ async def lifespan(app: FastAPI):
                 active,
                 platform_url=settings.platform_url,
                 self_client_id=settings.oauth_client_id,
-                self_name="Hindsight Manager",
+                self_name="Hindsignt",
                 self_home_path="/dashboard",
             )
 
@@ -143,7 +143,7 @@ async def lifespan(app: FastAPI):
                     active,
                     platform_url=settings.platform_url,
                     self_client_id=settings.oauth_client_id,
-                    self_name="Hindsight Manager",
+                    self_name="Hindsignt",
                     self_home_path="/dashboard",
                 )
 
