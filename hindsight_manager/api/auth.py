@@ -22,12 +22,19 @@ from hindsight_manager.models.tenant import Tenant
 from hindsight_manager.models.tenant_member import TenantMember
 from hindsight_manager.platform.client import XinyiPlatformClient
 from hindsight_manager.platform.config import PlatformSettings
+from xinyi_platform.ui_common.service_discovery import derive_client_secret
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 def get_platform_settings() -> PlatformSettings:
-    return PlatformSettings.from_app_settings(Settings())
+    raw = Settings()
+    ps = PlatformSettings.from_app_settings(raw)
+    if raw.registration_token and not ps.oauth_client_secret:
+        ps.oauth_client_secret = derive_client_secret(
+            raw.registration_token, raw.oauth_client_id,
+        )
+    return ps
 
 
 @asynccontextmanager
@@ -79,7 +86,7 @@ async def login_redirect(
     resp = RedirectResponse(url=authorize_url, status_code=303)
     resp.set_cookie(
         "hm_oauth_state", state_raw,
-        httponly=True, max_age=600, path="/", samesite="none",
+        httponly=True, max_age=600, path="/",
     )
     return resp
 
