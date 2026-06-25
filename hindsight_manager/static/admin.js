@@ -61,7 +61,7 @@ async function loadUsers(page = 1) {
   const params = new URLSearchParams({ page, page_size: 20 });
   if (_userSearch) params.set("search", _userSearch);
 
-  const resp = await apiFetch(`/admin/api/users?${params}`);
+  const resp = await apiFetch(`/hindsight/admin/api/users?${params}`);
   if (!resp) return;
   const data = await resp.json();
 
@@ -106,7 +106,7 @@ function hideCreateUserModal() {
 
 async function createUser(e) {
   e.preventDefault();
-  const resp = await apiFetch("/admin/api/users", {
+  const resp = await apiFetch("/hindsight/admin/api/users", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -142,7 +142,7 @@ function hideEditUserModal() {
 async function updateUser(e) {
   e.preventDefault();
   const id = document.getElementById("eu-id").value;
-  const resp = await apiFetch(`/admin/api/users/${id}`, {
+  const resp = await apiFetch(`/hindsight/admin/api/users/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -174,7 +174,7 @@ function hideResetPasswordModal() {
 async function resetPassword(e) {
   e.preventDefault();
   const id = document.getElementById("rp-id").value;
-  const resp = await apiFetch(`/admin/api/users/${id}/reset-password`, {
+  const resp = await apiFetch(`/hindsight/admin/api/users/${id}/reset-password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ new_password: document.getElementById("rp-password").value }),
@@ -192,7 +192,7 @@ async function resetPassword(e) {
 async function toggleUserActive(id, isActive) {
   const action = isActive ? "禁用" : "启用";
   if (!confirm(`确定${action}该用户吗？`)) return;
-  const resp = await apiFetch(`/admin/api/users/${id}`, { method: "DELETE" });
+  const resp = await apiFetch(`/hindsight/admin/api/users/${id}`, { method: "DELETE" });
   if (!resp) return;
   if (resp.ok) {
     loadUsers(_userPage);
@@ -212,7 +212,7 @@ async function loadTenants(page = 1) {
   const params = new URLSearchParams({ page, page_size: 20 });
   if (_tenantSearch) params.set("search", _tenantSearch);
 
-  const resp = await apiFetch(`/admin/api/tenants?${params}`);
+  const resp = await apiFetch(`/hindsight/admin/api/tenants?${params}`);
   if (!resp) return;
   const data = await resp.json();
 
@@ -248,7 +248,7 @@ function searchTenants() {
 
 async function deleteTenantAdmin(id, name) {
   if (!confirm(`确定删除租户 "${name}" 吗？此操作不可撤销。`)) return;
-  const resp = await apiFetch(`/admin/api/tenants/${id}`, { method: "DELETE" });
+  const resp = await apiFetch(`/hindsight/admin/api/tenants/${id}`, { method: "DELETE" });
   if (!resp) return;
   if (resp.ok) {
     loadTenants(_tenantPage);
@@ -302,7 +302,7 @@ async function purgeTenantAdmin(id, name, schemaName) {
   const confirmed = await showPurgeConfirmDialog(name, schemaName);
   if (!confirmed) return;
 
-  const resp = await apiFetch(`/admin/api/tenants/${id}/purge`, { method: "POST" });
+  const resp = await apiFetch(`/hindsight/admin/api/tenants/${id}/purge`, { method: "POST" });
   if (!resp) return;
   if (resp.ok) {
     loadTenants(_tenantPage);
@@ -325,7 +325,7 @@ async function loadApiKeys(page = 1) {
   const tenantFilter = document.getElementById("ak-tenant-filter");
   if (tenantFilter && tenantFilter.value) params.set("tenant_id", tenantFilter.value);
 
-  const resp = await apiFetch(`/admin/api/api-keys?${params}`);
+  const resp = await apiFetch(`/hindsight/admin/api/api-keys?${params}`);
   if (!resp) return;
   const data = await resp.json();
 
@@ -353,7 +353,7 @@ async function loadApiKeys(page = 1) {
 
 async function revokeApiKeyAdmin(id) {
   if (!confirm("确定撤销此 API Key 吗？使用该 Key 的应用将无法访问。")) return;
-  const resp = await apiFetch(`/admin/api/api-keys/${id}`, { method: "DELETE" });
+  const resp = await apiFetch(`/hindsight/admin/api/api-keys/${id}`, { method: "DELETE" });
   if (!resp) return;
   if (resp.ok) {
     loadApiKeys(_apiKeyPage);
@@ -372,7 +372,7 @@ async function loadAuditLogs(page = 1) {
   const actionFilter = document.getElementById("al-action-filter");
   if (actionFilter && actionFilter.value) params.set("action", actionFilter.value);
 
-  const resp = await apiFetch(`/admin/api/audit-logs?${params}`);
+  const resp = await apiFetch(`/hindsight/admin/api/audit-logs?${params}`);
   if (!resp) return;
   const data = await resp.json();
 

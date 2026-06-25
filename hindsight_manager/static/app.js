@@ -2,7 +2,7 @@ let _activePanel = null; // { tenantId: string, type: 'api-keys' | 'members' }
 
 async function enterConsole(tenantId, tenantSlug) {
   try {
-    const resp = await fetch(`/auth/otp?tenant_id=${tenantId}`, {
+    const resp = await fetch(`/hindsight/auth/otp?tenant_id=${tenantId}`, {
       method: "POST",
       credentials: "include",
     });
@@ -13,7 +13,7 @@ async function enterConsole(tenantId, tenantSlug) {
     const { otp, redirect_url } = await resp.json();
     const cpSsoUrl = redirect_url + "api/auth/sso";
     // Open POST-form redirect page — OTP goes via POST body, never in URL
-    window.open(`/auth/otp/redirect?otp=${encodeURIComponent(otp)}&cp_url=${encodeURIComponent(cpSsoUrl)}`, "_blank");
+    window.open(`/hindsight/auth/otp/redirect?otp=${encodeURIComponent(otp)}&cp_url=${encodeURIComponent(cpSsoUrl)}`, "_blank");
   } catch (e) {
     alert("网络错误");
   }
@@ -23,7 +23,7 @@ async function createTenant(e) {
   e.preventDefault();
   const name = document.getElementById("tenant-name").value;
   try {
-    const resp = await fetch("/tenants", {
+    const resp = await fetch("/hindsight/tenants", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -43,7 +43,7 @@ async function createTenant(e) {
 async function deleteTenant(tenantId, tenantName) {
   if (!confirm(`确定删除记忆库 "${tenantName}" 吗？此操作不可撤销。`)) return;
   try {
-    const resp = await fetch(`/tenants/${tenantId}`, {
+    const resp = await fetch(`/hindsight/tenants/${tenantId}`, {
       method: "DELETE",
       credentials: "include",
     });
@@ -99,7 +99,7 @@ async function renameApiKey(e) {
   const tenantId = document.getElementById("rename-apikey-tenant").value;
   const name = document.getElementById("rename-apikey-name").value;
   try {
-    const resp = await fetch(`/tenants/${tenantId}/api-keys/${keyId}`, {
+    const resp = await fetch(`/hindsight/tenants/${tenantId}/api-keys/${keyId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -122,7 +122,7 @@ async function renameTenant(e) {
   const tenantId = document.getElementById("rename-tenant-id").value;
   const name = document.getElementById("rename-name").value;
   try {
-    const resp = await fetch(`/tenants/${tenantId}`, {
+    const resp = await fetch(`/hindsight/tenants/${tenantId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -174,7 +174,7 @@ async function loadApiKeys(tenantId) {
   panel.innerHTML = '<div class="api-key-empty">加载中...</div>';
 
   try {
-    const resp = await fetch(`/tenants/${tenantId}/api-keys`, { credentials: 'include' });
+    const resp = await fetch(`/hindsight/tenants/${tenantId}/api-keys`, { credentials: 'include' });
     if (!resp.ok) {
       panel.innerHTML = '<div class="api-key-empty">加载失败，请重试</div>';
       return;
@@ -261,7 +261,7 @@ async function createApiKey(e) {
   const name = document.getElementById('apikey-name').value;
 
   try {
-    const resp = await fetch(`/tenants/${tenantId}/api-keys`, {
+    const resp = await fetch(`/hindsight/tenants/${tenantId}/api-keys`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -285,7 +285,7 @@ async function revokeApiKey(tenantId, keyId) {
   if (!confirm('确定删除此 API Key 吗？删除后使用该 Key 的应用将无法访问。')) return;
 
   try {
-    const resp = await fetch(`/tenants/${tenantId}/api-keys/${keyId}`, {
+    const resp = await fetch(`/hindsight/tenants/${tenantId}/api-keys/${keyId}`, {
       method: 'DELETE',
       credentials: 'include',
     });
@@ -420,7 +420,7 @@ async function loadMembers(tenantId, role, currentUserId) {
   };
 
   try {
-    const resp = await fetch(`/tenants/${tenantId}/members`, { credentials: 'include' });
+    const resp = await fetch(`/hindsight/tenants/${tenantId}/members`, { credentials: 'include' });
     if (!resp.ok) {
       showError('加载失败');
       return;
@@ -536,7 +536,7 @@ async function lookupMember() {
 
   try {
     const resp = await fetch(
-      `/tenants/${tenantId}/members/lookup?username=${encodeURIComponent(username)}`,
+      `/hindsight/tenants/${tenantId}/members/lookup?username=${encodeURIComponent(username)}`,
       { credentials: 'include' }
     );
     if (resp.status === 404) {
@@ -577,7 +577,7 @@ async function confirmAddMember(event) {
   if (!username) return;
 
   try {
-    const resp = await fetch(`/tenants/${tenantId}/members`, {
+    const resp = await fetch(`/hindsight/tenants/${tenantId}/members`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -617,7 +617,7 @@ async function changeMemberRole(tenantId, userId, newRole) {
   }
 
   try {
-    const resp = await fetch(`/tenants/${tenantId}/members/${userId}`, {
+    const resp = await fetch(`/hindsight/tenants/${tenantId}/members/${userId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -648,7 +648,7 @@ async function removeMember(tenantId, userId) {
   if (!confirm(`确定移除用户 ${username} 吗？`)) return;
 
   try {
-    const resp = await fetch(`/tenants/${tenantId}/members/${userId}`, {
+    const resp = await fetch(`/hindsight/tenants/${tenantId}/members/${userId}`, {
       method: 'DELETE',
       credentials: 'include',
     });

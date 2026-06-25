@@ -9,7 +9,7 @@ _STATIC_ROOT = Path("hindsight_manager/static")
 
 
 def _asset_url(url_path: str) -> str:
-    rel = url_path.removeprefix("/static/")
+    rel = url_path.removeprefix("/hindsight/static/")
     try:
         mtime = int((_STATIC_ROOT / rel).stat().st_mtime)
     except OSError:

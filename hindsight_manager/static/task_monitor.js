@@ -14,7 +14,7 @@ function formatDate(isoStr) {
 
 async function loadTaskStats() {
   try {
-    const resp = await fetch('/admin/api/task-stats', { credentials: 'include' });
+    const resp = await fetch('/hindsight/admin/api/task-stats', { credentials: 'include' });
     if (!resp.ok) return;
     const data = await resp.json();
 
@@ -65,7 +65,7 @@ async function loadTaskDetails() {
   if (opType) params.set('operation_type', opType);
 
   try {
-    const resp = await fetch(`/admin/api/task-details?${params}`, { credentials: 'include' });
+    const resp = await fetch(`/hindsight/admin/api/task-details?${params}`, { credentials: 'include' });
     if (!resp.ok) return;
     const data = await resp.json();
 
