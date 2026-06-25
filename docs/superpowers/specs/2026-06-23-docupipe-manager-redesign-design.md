@@ -970,3 +970,45 @@ docker stop 默认 10 秒宽限,够 docupipe 接收 SIGTERM 做 `.state/` 落盘
 - 失败主动提醒(企业微信 / 钉钉机器人 webhook)
 - venv 隔离 / 容器级隔离(每个 project 独立运行环境)
 - 运行重试链(自动重跑 max N 次)
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAN | 7 issues, 0 critical gaps |
+
+**VERDICT:** ENG REVIEW CLEARED — ready to implement.
+
+### Review Decisions
+
+| # | Section | Issue | Decision |
+|---|---------|-------|----------|
+| A1 | Architecture | Device flow state cleanup (memory leak on abandon) | Keep current + add timeout cleanup |
+| A2 | Architecture | Graceful shutdown CancelledError race | Add CancelledError handler |
+| A3 | Architecture | No request body size limit (OOM risk) | Add Starlette middleware (1MB / 413) |
+| C1 | Code Quality | SM4 crypto.py duplicated from xinyi-platform | Accept duplication (per decision 14) |
+| C2 | Code Quality | `mode` param no enum validation | Add Pydantic `Literal['full','incremental','mirror']` |
+| C3 | Code Quality | YAML parse returns non-dict → TypeError | Add `isinstance(config, dict)` guard |
+| T1 | Test | CancelledError regression test | Unit + service layer tests |
+| T2 | Test | Log truncation algorithm no tests | Unit test (UTF-8 edges, boundaries) |
+| P1 | Performance | UserLRUCache no maxsize → unbounded growth | `maxsize=1000` |
+
+### Failure Modes Flagged
+
+| Failure | Covered | Risk |
+|---------|---------|------|
+| Shutdown in-flight run | ✅ test + handler | Low |
+| Device flow session leak | ✅ timeout cleanup | Low |
+| SM4 key drift with platform | ❌ no health check | Medium — v2 item |
+| DWS CLI not installed | ❌ no startup check | Medium — v2 item |
+
+### New Test Requirements
+- [CRITICAL] `CancelledError` during shutdown — `tests/unit/test_runner_cancel.py`
+- [HIGH] Log truncation — `tests/unit/test_log_truncation.py`
+
+### Worktree Parallelization
+- Lane A: Phase 0 → 1 → 4 → 7 (sequential, shared platform/)
+- Lane B: Phase 3 → 5 → 6 → 8 (sequential, shared models/ + services/)
+- Lane C: Phase 2 (xinyi-platform repo, independent)
+- Phase 4 ∥ Phase 5 (no shared modules)
+- Phase 7 ∥ Phase 8 (no shared modules)

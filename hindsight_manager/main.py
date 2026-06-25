@@ -117,21 +117,7 @@ async def lifespan(app: FastAPI):
         )
 
     # Fetch active clients and populate product switcher
-    active = await fetch_active_clients(
-        settings.platform_url,
-        settings.oauth_client_id,
-        settings.oauth_client_secret,
-    )
-    if app.state.ui:
-        app.state.ui["products"] = build_product_list(
-            active,
-            platform_url=settings.platform_url,
-            self_client_id=settings.oauth_client_id,
-            self_name="Hindsight Manager",
-            self_home_path="/dashboard",
-        )
-
-    async def _refresh_products():
+    if settings.registration_token:
         active = await fetch_active_clients(
             settings.platform_url,
             settings.oauth_client_id,
@@ -146,7 +132,22 @@ async def lifespan(app: FastAPI):
                 self_home_path="/dashboard",
             )
 
-    scheduler.add_job(_refresh_products, "interval", minutes=5, id="refresh-products", replace_existing=True)
+        async def _refresh_products():
+            active = await fetch_active_clients(
+                settings.platform_url,
+                settings.oauth_client_id,
+                settings.oauth_client_secret,
+            )
+            if app.state.ui:
+                app.state.ui["products"] = build_product_list(
+                    active,
+                    platform_url=settings.platform_url,
+                    self_client_id=settings.oauth_client_id,
+                    self_name="Hindsight Manager",
+                    self_home_path="/dashboard",
+                )
+
+        scheduler.add_job(_refresh_products, "interval", minutes=5, id="refresh-products", replace_existing=True)
 
     scheduler.start()
 
