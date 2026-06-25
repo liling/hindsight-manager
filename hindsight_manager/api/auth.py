@@ -78,8 +78,8 @@ async def login_redirect(
 
     resp = RedirectResponse(url=authorize_url, status_code=303)
     resp.set_cookie(
-        "hm_oauth_state", signature,
-        httponly=True, max_age=600, path="/", samesite="lax",
+        "hm_oauth_state", state_raw,
+        httponly=True, max_age=600, path="/", samesite="none",
     )
     return resp
 
@@ -92,7 +92,12 @@ async def oauth_callback(
     return_to: str = Query("/hindsight/dashboard"),
     state_cookie: str | None = Cookie(default=None, alias="hm_oauth_state"),
 ):
-    if not state_cookie or state_cookie != state:
+    # Verify state via HMAC: cookie stores raw, query stores signature
+    if not state_cookie:
+        raise HTTPException(status_code=400, detail="Invalid OAuth state")
+    state_secret = Settings().jwt_secret
+    expected = sign_oauth_state_helper(state_cookie, state_secret)
+    if expected != state:
         raise HTTPException(status_code=400, detail="Invalid OAuth state")
 
     settings = Settings()
