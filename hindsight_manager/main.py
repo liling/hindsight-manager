@@ -108,9 +108,9 @@ async def lifespan(app: FastAPI):
             client_metadata={
                 "client_id": settings.oauth_client_id,
                 "name": "Hindsight Manager",
-                "redirect_uris": [settings.oauth_redirect_uri],
-                "logout_url": f"{settings.base_url}/hindsight/auth/logout",
                 "base_url": f"{settings.base_url}/hindsight",
+                "redirect_uris": ["/auth/callback"],
+                "logout_url": "/auth/logout",
                 "home_path": "/dashboard",
                 "description": "RAG 记忆库",
             },
