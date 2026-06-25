@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     oauth_redirect_uri: str = "http://localhost:8001/hindsight/auth/callback"
     access_token_ttl_seconds: int = 900
     refresh_token_ttl_days: int = 7
+    registration_token: str = ""
 
     model_config = {"env_prefix": "HINDSIGHT_MANAGER_", "env_file": ".env"}
 

@@ -85,6 +85,69 @@ async def lifespan(app: FastAPI):
 
     scheduler.add_job(_audit_retry_job, "interval", seconds=10,
                       id="audit-retry", replace_existing=True)
+
+    # Auto-registration + service discovery
+    from xinyi_platform.ui_common.service_discovery import (
+        derive_client_secret,
+        register_self,
+        fetch_active_clients,
+        build_product_list,
+    )
+
+    if settings.registration_token:
+        # Derive client_secret from registration token
+        settings.oauth_client_secret = derive_client_secret(
+            settings.registration_token,
+            settings.oauth_client_id,
+        )
+
+        # Register with platform
+        await register_self(
+            platform_url=settings.platform_url,
+            registration_token=settings.registration_token,
+            client_metadata={
+                "client_id": settings.oauth_client_id,
+                "name": "Hindsight Manager",
+                "redirect_uris": [settings.oauth_redirect_uri],
+                "logout_url": f"{settings.base_url}/hindsight/auth/logout",
+                "base_url": f"{settings.base_url}/hindsight",
+                "home_path": "/dashboard",
+                "description": "RAG 记忆库",
+            },
+        )
+
+    # Fetch active clients and populate product switcher
+    active = await fetch_active_clients(
+        settings.platform_url,
+        settings.oauth_client_id,
+        settings.oauth_client_secret,
+    )
+    if app.state.ui:
+        app.state.ui["products"] = build_product_list(
+            active,
+            platform_url=settings.platform_url,
+            self_client_id=settings.oauth_client_id,
+            self_name="Hindsight Manager",
+            self_home_path="/dashboard",
+        )
+
+    async def _refresh_products():
+        active = await fetch_active_clients(
+            settings.platform_url,
+            settings.oauth_client_id,
+            settings.oauth_client_secret,
+        )
+        if app.state.ui:
+            app.state.ui["products"] = build_product_list(
+                active,
+                platform_url=settings.platform_url,
+                self_client_id=settings.oauth_client_id,
+                self_name="Hindsight Manager",
+                self_home_path="/dashboard",
+            )
+
+    scheduler.add_job(_refresh_products, "interval", minutes=5, id="refresh-products", replace_existing=True)
+
     scheduler.start()
 
     yield
@@ -146,7 +209,6 @@ install_ui(
     nav_menu=HM_NAV_MENU,
     brand=settings.brand_name,
     platform_url=settings.platform_url,
-    manager_url=settings.base_url,
     service_prefix="/hindsight",
 )
 
