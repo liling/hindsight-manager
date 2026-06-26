@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 
-import httpx
 import typer
 
 app = typer.Typer()

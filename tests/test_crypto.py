@@ -1,4 +1,3 @@
-import pytest
 
 from hindsight_manager.crypto import decrypt_sm4, encrypt_sm4
 

@@ -1,7 +1,7 @@
 import enum
 import uuid
 
-from sqlalchemy import Enum, ForeignKey, PrimaryKeyConstraint, String, func
+from sqlalchemy import Enum, ForeignKey, PrimaryKeyConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from hindsight_manager.models.base import Base

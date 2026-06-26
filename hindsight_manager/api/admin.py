@@ -133,7 +133,6 @@ async def list_tenants_admin(
 
     # Batch-resolve owner usernames via platform client (1 HTTP call for all tenants)
     if owner_ids_by_tenant:
-        from contextlib import asynccontextmanager
         from hindsight_manager.platform.client import XinyiPlatformClient
         from hindsight_manager.platform.config import PlatformSettings
 

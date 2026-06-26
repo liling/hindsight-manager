@@ -2,7 +2,6 @@ import threading
 import time
 import uuid
 from collections import OrderedDict
-from typing import Any
 
 
 class UserLRUCache:

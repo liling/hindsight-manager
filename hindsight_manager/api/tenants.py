@@ -6,8 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from hindsight_manager.auth.dependencies import get_current_user
 from hindsight_manager.db import get_session
-from hindsight_manager.models.tenant import Tenant, TenantStatus
-from hindsight_manager.models.tenant_member import MemberRole
+from hindsight_manager.models.tenant import Tenant
 from hindsight_manager.services import tenant_service
 from hindsight_manager.services.membership import require_membership
 
