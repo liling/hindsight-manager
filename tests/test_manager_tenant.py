@@ -6,6 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+pytest.importorskip("hindsight_api", reason="ManagerTenantExtension runs inside the hindsight-api process; skip when running in this repo without it.")
+
 from hindsight_api.extensions.tenant import AuthenticationError, TenantContext
 from hindsight_api.models import RequestContext
 from hindsight_manager.extensions.manager_tenant import ManagerTenantExtension

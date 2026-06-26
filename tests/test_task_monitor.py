@@ -66,7 +66,7 @@ async def test_task_stats_returns_global_and_per_tenant(admin_client):
         MagicMock(),
     ]
 
-    resp = await client.get("/admin/api/task-stats")
+    resp = await client.get("/hindsight/admin/api/task-stats")
     assert resp.status_code == 200
     data = resp.json()
     assert "global" in data
@@ -120,7 +120,7 @@ async def test_task_details_returns_paginated_items(admin_client):
     ]
 
     resp = await client.get(
-        "/admin/api/task-details",
+        "/hindsight/admin/api/task-details",
         params={"tenant_id": str(tenant_row.id), "page": 1, "page_size": 20},
     )
     assert resp.status_code == 200
@@ -154,12 +154,12 @@ async def normal_client():
 
 
 async def test_task_stats_requires_admin(normal_client):
-    resp = await normal_client.get("/admin/api/task-stats")
+    resp = await normal_client.get("/hindsight/admin/api/task-stats")
     assert resp.status_code == 403
 
 
 async def test_task_details_requires_admin(normal_client):
-    resp = await normal_client.get("/admin/api/task-details")
+    resp = await normal_client.get("/hindsight/admin/api/task-details")
     assert resp.status_code == 403
 
 
@@ -169,7 +169,7 @@ async def test_task_stats_empty_when_no_tenants(admin_client):
     tenant_result.scalars.return_value.all.return_value = []
     mock_session.execute.return_value = tenant_result
 
-    resp = await client.get("/admin/api/task-stats")
+    resp = await client.get("/hindsight/admin/api/task-stats")
     assert resp.status_code == 200
     data = resp.json()
     assert data["global"]["pending"] == 0
@@ -181,7 +181,7 @@ async def test_task_details_empty_when_no_tenant_match(admin_client):
     mock_session.get = AsyncMock(return_value=None)
 
     resp = await client.get(
-        "/admin/api/task-details",
+        "/hindsight/admin/api/task-details",
         params={"tenant_id": str(uuid.uuid4())},
     )
     assert resp.status_code == 200

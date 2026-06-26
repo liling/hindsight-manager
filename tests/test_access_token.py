@@ -34,13 +34,13 @@ async def client():
 
 
 async def test_access_token_missing_auth(client: AsyncClient):
-    resp = await client.post(f"/auth/access-token?tenant_id={uuid.uuid4()}")
+    resp = await client.post(f"/hindsight/auth/access-token?tenant_id={uuid.uuid4()}")
     assert resp.status_code == 401
 
 
 async def test_access_token_invalid_session(client: AsyncClient):
     resp = await client.post(
-        f"/auth/access-token?tenant_id={uuid.uuid4()}",
+        f"/hindsight/auth/access-token?tenant_id={uuid.uuid4()}",
         cookies={"hindsight_session": "invalid-token"},
     )
     assert resp.status_code == 401

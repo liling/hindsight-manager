@@ -144,7 +144,7 @@ async def test_list_members_as_owner(client: AsyncClient):
     for p in patches:
         p.start()
     try:
-        resp = await client.get(f"/tenants/{TENANT_ID}/members")
+        resp = await client.get(f"/hindsight/tenants/{TENANT_ID}/members")
         assert resp.status_code == 200
         body = resp.json()
         usernames = [m["username"] for m in body]
@@ -167,7 +167,7 @@ async def test_list_members_as_member(client: AsyncClient):
     list_result.all.return_value = []
     _override_session_side_effect([membership_result, list_result])
 
-    resp = await client.get(f"/tenants/{TENANT_ID}/members")
+    resp = await client.get(f"/hindsight/tenants/{TENANT_ID}/members")
     assert resp.status_code == 200
 
 
@@ -178,7 +178,7 @@ async def test_list_members_as_non_member(client: AsyncClient):
     membership_result.one_or_none.return_value = None
     _override_session_side_effect([membership_result])
 
-    resp = await client.get(f"/tenants/{TENANT_ID}/members")
+    resp = await client.get(f"/hindsight/tenants/{TENANT_ID}/members")
     assert resp.status_code == 404
 
 
@@ -206,7 +206,7 @@ async def test_add_member_by_owner(client: AsyncClient):
         p.start()
     try:
         resp = await client.post(
-            f"/tenants/{TENANT_ID}/members",
+            f"/hindsight/tenants/{TENANT_ID}/members",
             json={"username": "newbie", "role": "member"},
         )
         assert resp.status_code == 201
@@ -232,7 +232,7 @@ async def test_add_member_by_member_forbidden(client: AsyncClient):
     _override_session_side_effect([join_result])
 
     resp = await client.post(
-        f"/tenants/{TENANT_ID}/members",
+        f"/hindsight/tenants/{TENANT_ID}/members",
         json={"username": "newbie", "role": "member"},
     )
     assert resp.status_code == 403
@@ -252,7 +252,7 @@ async def test_add_nonexistent_user(client: AsyncClient):
         p.start()
     try:
         resp = await client.post(
-            f"/tenants/{TENANT_ID}/members",
+            f"/hindsight/tenants/{TENANT_ID}/members",
             json={"username": "ghost", "role": "member"},
         )
         assert resp.status_code == 404
@@ -282,7 +282,7 @@ async def test_add_duplicate_member(client: AsyncClient):
         p.start()
     try:
         resp = await client.post(
-            f"/tenants/{TENANT_ID}/members",
+            f"/hindsight/tenants/{TENANT_ID}/members",
             json={"username": "newbie", "role": "member"},
         )
         assert resp.status_code == 409
@@ -320,7 +320,7 @@ async def test_lookup_member_success(client: AsyncClient):
     for p in patches:
         p.start()
     try:
-        resp = await client.get(f"/tenants/{TENANT_ID}/members/lookup?username=newbie")
+        resp = await client.get(f"/hindsight/tenants/{TENANT_ID}/members/lookup?username=newbie")
         assert resp.status_code == 200
         body = resp.json()
         assert body["username"] == "newbie"
@@ -352,7 +352,7 @@ async def test_lookup_member_already_member(client: AsyncClient):
     for p in patches:
         p.start()
     try:
-        resp = await client.get(f"/tenants/{TENANT_ID}/members/lookup?username=newbie")
+        resp = await client.get(f"/hindsight/tenants/{TENANT_ID}/members/lookup?username=newbie")
         assert resp.status_code == 200
         assert resp.json()["is_already_member"] is True
     finally:
@@ -373,7 +373,7 @@ async def test_lookup_member_not_found(client: AsyncClient):
 
     _override_session_side_effect([join_result, target_result])
 
-    resp = await client.get(f"/tenants/{TENANT_ID}/members/lookup?username=ghost")
+    resp = await client.get(f"/hindsight/tenants/{TENANT_ID}/members/lookup?username=ghost")
     assert resp.status_code == 404
 
 
@@ -385,7 +385,7 @@ async def test_lookup_member_requires_owner(client: AsyncClient):
     join_result.one_or_none.return_value = (member_membership, _make_tenant(TENANT_ID))
     _override_session_side_effect([join_result])
 
-    resp = await client.get(f"/tenants/{TENANT_ID}/members/lookup?username=newbie")
+    resp = await client.get(f"/hindsight/tenants/{TENANT_ID}/members/lookup?username=newbie")
     assert resp.status_code == 403
 
 
@@ -404,7 +404,7 @@ async def test_remove_member_by_owner(client: AsyncClient):
 
     mock_session = _override_session_side_effect([join_result, target_result])
 
-    resp = await client.delete(f"/tenants/{TENANT_ID}/members/{TARGET_USER_ID}")
+    resp = await client.delete(f"/hindsight/tenants/{TENANT_ID}/members/{TARGET_USER_ID}")
     assert resp.status_code == 204
     mock_session.delete.assert_awaited_once_with(target_membership)
     mock_session.commit.assert_awaited_once()
@@ -418,7 +418,7 @@ async def test_remove_member_by_member_forbidden(client: AsyncClient):
     join_result.one_or_none.return_value = (member_membership, _make_tenant(TENANT_ID))
     _override_session_side_effect([join_result])
 
-    resp = await client.delete(f"/tenants/{TENANT_ID}/members/{TARGET_USER_ID}")
+    resp = await client.delete(f"/hindsight/tenants/{TENANT_ID}/members/{TARGET_USER_ID}")
     assert resp.status_code == 403
 
 
@@ -440,7 +440,7 @@ async def test_change_role_by_owner(client: AsyncClient):
     mock_session.get = AsyncMock(return_value=_make_user(TARGET_USER_ID, "newbie"))
 
     resp = await client.patch(
-        f"/tenants/{TENANT_ID}/members/{TARGET_USER_ID}",
+        f"/hindsight/tenants/{TENANT_ID}/members/{TARGET_USER_ID}",
         json={"role": "owner"},
     )
     assert resp.status_code == 200
@@ -458,7 +458,7 @@ async def test_change_role_by_member_forbidden(client: AsyncClient):
     _override_session_side_effect([join_result])
 
     resp = await client.patch(
-        f"/tenants/{TENANT_ID}/members/{TARGET_USER_ID}",
+        f"/hindsight/tenants/{TENANT_ID}/members/{TARGET_USER_ID}",
         json={"role": "owner"},
     )
     assert resp.status_code == 403

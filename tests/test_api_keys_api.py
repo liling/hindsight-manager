@@ -108,7 +108,7 @@ async def test_create_api_key_as_owner(client: AsyncClient):
     mock_session = _override_session_side_effect([join_result])
 
     resp = await client.post(
-        f"/tenants/{TENANT_ID}/api-keys",
+        f"/hindsight/tenants/{TENANT_ID}/api-keys",
         json={"name": "my-key"},
     )
     assert resp.status_code == 201
@@ -131,7 +131,7 @@ async def test_create_api_key_as_member_forbidden(client: AsyncClient):
     _override_session_side_effect([join_result])
 
     resp = await client.post(
-        f"/tenants/{TENANT_ID}/api-keys",
+        f"/hindsight/tenants/{TENANT_ID}/api-keys",
         json={"name": "my-key"},
     )
     assert resp.status_code == 403
@@ -146,7 +146,7 @@ async def test_create_api_key_as_outsider_not_found(client: AsyncClient):
     _override_session_side_effect([join_result])
 
     resp = await client.post(
-        f"/tenants/{TENANT_ID}/api-keys",
+        f"/hindsight/tenants/{TENANT_ID}/api-keys",
         json={"name": "my-key"},
     )
     assert resp.status_code == 404
@@ -168,7 +168,7 @@ async def test_list_api_keys_as_owner(client: AsyncClient):
 
     _override_session_side_effect([join_result, list_result])
 
-    resp = await client.get(f"/tenants/{TENANT_ID}/api-keys")
+    resp = await client.get(f"/hindsight/tenants/{TENANT_ID}/api-keys")
     assert resp.status_code == 200
     body = resp.json()
     assert len(body) == 2
@@ -185,7 +185,7 @@ async def test_list_api_keys_as_member_forbidden(client: AsyncClient):
 
     _override_session_side_effect([join_result])
 
-    resp = await client.get(f"/tenants/{TENANT_ID}/api-keys")
+    resp = await client.get(f"/hindsight/tenants/{TENANT_ID}/api-keys")
     assert resp.status_code == 403
 
 
@@ -204,7 +204,7 @@ async def test_revoke_api_key_as_owner(client: AsyncClient):
 
     mock_session = _override_session_side_effect([join_result, key_result])
 
-    resp = await client.delete(f"/tenants/{TENANT_ID}/api-keys/{API_KEY_ID}")
+    resp = await client.delete(f"/hindsight/tenants/{TENANT_ID}/api-keys/{API_KEY_ID}")
     assert resp.status_code == 200
     assert resp.json() == {"ok": True}
     mock_session.delete.assert_awaited_once_with(api_key)
@@ -223,5 +223,5 @@ async def test_revoke_api_key_not_found(client: AsyncClient):
 
     _override_session_side_effect([join_result, key_result])
 
-    resp = await client.delete(f"/tenants/{TENANT_ID}/api-keys/{API_KEY_ID}")
+    resp = await client.delete(f"/hindsight/tenants/{TENANT_ID}/api-keys/{API_KEY_ID}")
     assert resp.status_code == 404

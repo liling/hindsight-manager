@@ -57,7 +57,7 @@ def _override_session_and_user(session_mock, user_role="admin"):
 async def test_purge_requires_admin(client):
     mock_session = AsyncMock()
     _override_session_and_user(mock_session, user_role="user")
-    resp = await client.post(f"/admin/api/tenants/{TENANT_ID}/purge")
+    resp = await client.post(f"/hindsight/admin/api/tenants/{TENANT_ID}/purge")
     assert resp.status_code == 403
 
 
@@ -70,7 +70,7 @@ async def test_purge_unknown_tenant_404(client):
         side_effect=[_make_result(scalar=None)]
     )
     _override_session_and_user(mock_session)
-    resp = await client.post(f"/admin/api/tenants/{TENANT_ID}/purge")
+    resp = await client.post(f"/hindsight/admin/api/tenants/{TENANT_ID}/purge")
     assert resp.status_code == 404
 
 
@@ -82,7 +82,7 @@ async def test_purge_active_tenant_409(client):
     mock_session = AsyncMock()
     mock_session.execute = AsyncMock(side_effect=[_make_result(scalar=tenant)])
     _override_session_and_user(mock_session)
-    resp = await client.post(f"/admin/api/tenants/{TENANT_ID}/purge")
+    resp = await client.post(f"/hindsight/admin/api/tenants/{TENANT_ID}/purge")
     assert resp.status_code == 409
     assert "active" in resp.json()["detail"].lower()
 
@@ -95,7 +95,7 @@ async def test_purge_deleted_tenant_409(client):
     mock_session = AsyncMock()
     mock_session.execute = AsyncMock(side_effect=[_make_result(scalar=tenant)])
     _override_session_and_user(mock_session)
-    resp = await client.post(f"/admin/api/tenants/{TENANT_ID}/purge")
+    resp = await client.post(f"/hindsight/admin/api/tenants/{TENANT_ID}/purge")
     assert resp.status_code == 409
 
 
@@ -115,7 +115,7 @@ async def test_purge_deleting_tenant_success(client):
     mock_session.commit = AsyncMock()
     _override_session_and_user(mock_session)
 
-    resp = await client.post(f"/admin/api/tenants/{TENANT_ID}/purge")
+    resp = await client.post(f"/hindsight/admin/api/tenants/{TENANT_ID}/purge")
 
     assert resp.status_code == 200
     body = resp.json()
@@ -144,7 +144,7 @@ async def test_purge_when_schema_missing(client):
     mock_session.commit = AsyncMock()
     _override_session_and_user(mock_session)
 
-    resp = await client.post(f"/admin/api/tenants/{TENANT_ID}/purge")
+    resp = await client.post(f"/hindsight/admin/api/tenants/{TENANT_ID}/purge")
 
     assert resp.status_code == 200
     assert resp.json() == {"ok": True, "schema_dropped": False}
@@ -161,7 +161,7 @@ async def test_purge_invalid_schema_name_500(client):
     mock_session.execute = AsyncMock(side_effect=[_make_result(scalar=tenant)])
     _override_session_and_user(mock_session)
 
-    resp = await client.post(f"/admin/api/tenants/{TENANT_ID}/purge")
+    resp = await client.post(f"/hindsight/admin/api/tenants/{TENANT_ID}/purge")
 
     assert resp.status_code == 500
     # DROP SCHEMA 不应该被调用
@@ -182,7 +182,7 @@ async def test_purge_writes_audit_log(client):
     mock_session.commit = AsyncMock()
     _override_session_and_user(mock_session)
 
-    await client.post(f"/admin/api/tenants/{TENANT_ID}/purge")
+    await client.post(f"/hindsight/admin/api/tenants/{TENANT_ID}/purge")
 
     # 验证 audit_outbox 通过 session.add 写入(Plan B 之后,audit 不再写 AuditLog,
     # 而是入队到 audit_outbox,由后台 task 转发到 platform)
@@ -211,7 +211,7 @@ async def test_purge_uses_select_for_update(client):
     mock_session.commit = AsyncMock()
     _override_session_and_user(mock_session)
 
-    await client.post(f"/admin/api/tenants/{TENANT_ID}/purge")
+    await client.post(f"/hindsight/admin/api/tenants/{TENANT_ID}/purge")
 
     first_call = mock_session.execute.call_args_list[0]
     # SQLAlchemy renders with_for_update as "FOR UPDATE" in the SQL
@@ -245,7 +245,7 @@ async def test_admin_tenant_list_excludes_deleted(client):
     mock_session.execute = AsyncMock(side_effect=capture_execute)
     _override_session_and_user(mock_session)
 
-    resp = await client.get("/admin/api/tenants")
+    resp = await client.get("/hindsight/admin/api/tenants")
     assert resp.status_code == 200
 
     # count_query 和主 query 都不应该返回 deleted 行
@@ -280,7 +280,7 @@ async def test_admin_api_key_list_excludes_deleted_tenant(client):
     mock_session.execute = AsyncMock(side_effect=capture_execute)
     _override_session_and_user(mock_session)
 
-    resp = await client.get("/admin/api/api-keys")
+    resp = await client.get("/hindsight/admin/api/api-keys")
     assert resp.status_code == 200
 
     # api_keys JOIN tenants 的查询应该只显示 ACTIVE 租户的 key

@@ -3,7 +3,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-from hindsight_manager.auth.session import create_access_token
 from hindsight_manager.config import Settings
 from hindsight_manager.main import app
 
@@ -53,7 +52,7 @@ def test_callback_exchanges_code_and_sets_cookies():
         response = client.get(
             "/hindsight/auth/callback",
             params={"code": "test-code", "state": sig, "return_to": "/hindsight/dashboard"},
-            cookies={"hm_oauth_state": sig},
+            cookies={"hm_oauth_state": state},
             follow_redirects=False,
         )
     assert response.status_code == 303
@@ -90,7 +89,7 @@ def test_callback_platform_returns_none_returns_401():
         response = client.get(
             "/hindsight/auth/callback",
             params={"code": "bad", "state": sig},
-            cookies={"hm_oauth_state": sig},
+            cookies={"hm_oauth_state": state},
             follow_redirects=False,
         )
     assert response.status_code == 401
@@ -185,7 +184,7 @@ def test_session_cookie_grants_access_to_business_endpoint():
         callback_resp = client.get(
             "/hindsight/auth/callback",
             params={"code": "x", "state": sig},
-            cookies={"hm_oauth_state": sig},
+            cookies={"hm_oauth_state": state},
             follow_redirects=False,
         )
         session_cookie = callback_resp.cookies.get("hindsight_session")

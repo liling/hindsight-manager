@@ -32,14 +32,14 @@ async def client():
 
 
 async def test_proxy_missing_auth(client: AsyncClient):
-    resp = await client.get("/api/proxy/00000000-0000-0000-0000-000000000001/banks")
+    resp = await client.get("/hindsight/api/proxy/00000000-0000-0000-0000-000000000001/banks")
     assert resp.status_code == 401
     assert resp.json()["detail"] == "Missing authorization token"
 
 
 async def test_proxy_invalid_token(client: AsyncClient):
     resp = await client.get(
-        "/api/proxy/00000000-0000-0000-0000-000000000001/banks",
+        "/hindsight/api/proxy/00000000-0000-0000-0000-000000000001/banks",
         headers={"Authorization": "Bearer invalid-token"},
     )
     assert resp.status_code == 401

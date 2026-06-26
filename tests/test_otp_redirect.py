@@ -47,7 +47,7 @@ async def test_otp_returns_clean_redirect_url(mock_create_otp, client: AsyncClie
     app.dependency_overrides[get_session] = _override
 
     resp = await client.post(
-        "/auth/otp?tenant_id=00000000-0000-0000-0000-000000000001",
+        "/hindsight/auth/otp?tenant_id=00000000-0000-0000-0000-000000000001",
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -59,7 +59,7 @@ async def test_otp_returns_clean_redirect_url(mock_create_otp, client: AsyncClie
 @pytest.mark.asyncio
 async def test_otp_redirect_form_returns_html(client: AsyncClient):
     resp = await client.get(
-        "/auth/otp/redirect?otp=test-otp&cp_url=http://example.com/api/auth/sso",
+        "/hindsight/auth/otp/redirect?otp=test-otp&cp_url=http://example.com/api/auth/sso",
     )
     assert resp.status_code == 200
     assert 'method="POST"' in resp.text

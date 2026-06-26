@@ -95,7 +95,7 @@ async def test_owner_can_rename_tenant(client: AsyncClient):
 
     _override_session_side_effect([join_result])
 
-    resp = await client.patch(f"/tenants/{TENANT_ID}", json={"name": "新名"})
+    resp = await client.patch(f"/hindsight/tenants/{TENANT_ID}", json={"name": "新名"})
     assert resp.status_code == 200
     assert resp.json()["name"] == "新名"
     assert tenant.name == "新名"
@@ -111,7 +111,7 @@ async def test_member_cannot_rename_tenant(client: AsyncClient):
 
     _override_session_side_effect([join_result])
 
-    resp = await client.patch(f"/tenants/{TENANT_ID}", json={"name": "新名"})
+    resp = await client.patch(f"/hindsight/tenants/{TENANT_ID}", json={"name": "新名"})
     assert resp.status_code == 403
     assert tenant.name == "旧名"
 
@@ -126,7 +126,7 @@ async def test_rename_empty_name_rejected(client: AsyncClient):
 
     _override_session_side_effect([join_result])
 
-    resp = await client.patch(f"/tenants/{TENANT_ID}", json={"name": "   "})
+    resp = await client.patch(f"/hindsight/tenants/{TENANT_ID}", json={"name": "   "})
     assert resp.status_code == 422
     assert tenant.name == "旧名"
 
@@ -141,7 +141,7 @@ async def test_rename_too_long_name_rejected(client: AsyncClient):
 
     _override_session_side_effect([join_result])
 
-    resp = await client.patch(f"/tenants/{TENANT_ID}", json={"name": "x" * 256})
+    resp = await client.patch(f"/hindsight/tenants/{TENANT_ID}", json={"name": "x" * 256})
     assert resp.status_code == 422
     assert tenant.name == "旧名"
 
@@ -157,7 +157,7 @@ async def test_update_config_preserves_name(client: AsyncClient):
     _override_session_side_effect([join_result])
 
     resp = await client.patch(
-        f"/tenants/{TENANT_ID}",
+        f"/hindsight/tenants/{TENANT_ID}",
         json={"llm_provider": "openai"},
     )
     assert resp.status_code == 200
@@ -176,7 +176,7 @@ async def test_rename_and_update_config_together(client: AsyncClient):
     _override_session_side_effect([join_result])
 
     resp = await client.patch(
-        f"/tenants/{TENANT_ID}",
+        f"/hindsight/tenants/{TENANT_ID}",
         json={"name": "新名", "llm_model": "gpt-4"},
     )
     assert resp.status_code == 200
@@ -207,7 +207,7 @@ async def test_update_api_key_name_success(client: AsyncClient):
     _override_session_side_effect([join_result, key_result])
 
     resp = await client.patch(
-        f"/tenants/{TENANT_ID}/api-keys/{API_KEY_ID}", json={"name": "new-name"}
+        f"/hindsight/tenants/{TENANT_ID}/api-keys/{API_KEY_ID}", json={"name": "new-name"}
     )
     assert resp.status_code == 200
     assert resp.json()["name"] == "new-name"
@@ -228,7 +228,7 @@ async def test_update_api_key_empty_name_rejected(client: AsyncClient):
     _override_session_side_effect([join_result, key_result])
 
     resp = await client.patch(
-        f"/tenants/{TENANT_ID}/api-keys/{API_KEY_ID}", json={"name": "   "}
+        f"/hindsight/tenants/{TENANT_ID}/api-keys/{API_KEY_ID}", json={"name": "   "}
     )
     assert resp.status_code == 422
     assert api_key.name == "old-name"
@@ -248,7 +248,7 @@ async def test_update_api_key_name_too_long_rejected(client: AsyncClient):
     _override_session_side_effect([join_result, key_result])
 
     resp = await client.patch(
-        f"/tenants/{TENANT_ID}/api-keys/{API_KEY_ID}", json={"name": "x" * 256}
+        f"/hindsight/tenants/{TENANT_ID}/api-keys/{API_KEY_ID}", json={"name": "x" * 256}
     )
     assert resp.status_code == 422
     assert api_key.name == "old-name"
@@ -268,7 +268,7 @@ async def test_update_api_key_system_key_forbidden(client: AsyncClient):
     _override_session_side_effect([join_result, key_result])
 
     resp = await client.patch(
-        f"/tenants/{TENANT_ID}/api-keys/{API_KEY_ID}", json={"name": "new-name"}
+        f"/hindsight/tenants/{TENANT_ID}/api-keys/{API_KEY_ID}", json={"name": "new-name"}
     )
     assert resp.status_code == 403
     assert "System API key cannot be renamed" in resp.json()["detail"]
@@ -286,7 +286,7 @@ async def test_update_api_key_not_owner(client: AsyncClient):
     _override_session_side_effect([join_result])
 
     resp = await client.patch(
-        f"/tenants/{TENANT_ID}/api-keys/{API_KEY_ID}", json={"name": "new-name"}
+        f"/hindsight/tenants/{TENANT_ID}/api-keys/{API_KEY_ID}", json={"name": "new-name"}
     )
     assert resp.status_code == 403
 
@@ -304,7 +304,7 @@ async def test_update_api_key_not_found(client: AsyncClient):
     _override_session_side_effect([join_result, key_result])
 
     resp = await client.patch(
-        f"/tenants/{TENANT_ID}/api-keys/{API_KEY_ID}", json={"name": "new-name"}
+        f"/hindsight/tenants/{TENANT_ID}/api-keys/{API_KEY_ID}", json={"name": "new-name"}
     )
     assert resp.status_code == 404
 
@@ -324,7 +324,7 @@ async def test_update_api_key_wrong_tenant_returns_404(client: AsyncClient):
     _override_session_side_effect([join_result, key_result])
 
     resp = await client.patch(
-        f"/tenants/{TENANT_ID}/api-keys/{API_KEY_ID}", json={"name": "new-name"}
+        f"/hindsight/tenants/{TENANT_ID}/api-keys/{API_KEY_ID}", json={"name": "new-name"}
     )
     assert resp.status_code == 404
 
@@ -343,7 +343,7 @@ async def test_update_api_key_strips_whitespace(client: AsyncClient):
     _override_session_side_effect([join_result, key_result])
 
     resp = await client.patch(
-        f"/tenants/{TENANT_ID}/api-keys/{API_KEY_ID}", json={"name": "  new-name  "}
+        f"/hindsight/tenants/{TENANT_ID}/api-keys/{API_KEY_ID}", json={"name": "  new-name  "}
     )
     assert resp.status_code == 200
     assert api_key.name == "new-name"
