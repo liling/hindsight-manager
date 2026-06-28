@@ -16,12 +16,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: hindsight-manager
 
       - name: Checkout sibling xinyi-platform repo
         uses: actions/checkout@v4
         with:
           repository: liling/xinyi-platform
-          path: ../xinyi-platform
+          path: xinyi-platform
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
@@ -38,12 +40,14 @@ jobs:
 
       - name: Extract short SHA
         id: sha
+        working-directory: hindsight-manager
         run: echo "SHORT=$(git rev-parse --short=7 HEAD)" >> $GITHUB_OUTPUT
 
       - name: Build and push
         uses: docker/build-push-action@v7
         with:
-          context: ..
+          context: .
+          file: ./hindsight-manager/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
