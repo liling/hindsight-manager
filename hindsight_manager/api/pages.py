@@ -65,7 +65,7 @@ async def login_page(
     }
     url = f"{settings.platform_url}/oauth/authorize?{urlencode(params)}"
     resp = RedirectResponse(url=url, status_code=303)
-    resp.set_cookie("hm_oauth_state", sig, httponly=True, max_age=600, path="/", samesite="lax")
+    resp.set_cookie("hm_oauth_state", state, httponly=True, max_age=600, path="/", samesite="lax")
     return resp
 
 
